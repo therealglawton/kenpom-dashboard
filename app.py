@@ -10,6 +10,12 @@ import requests
 
 app = FastAPI()
 
+from fastapi.responses import RedirectResponse
+
+@app.get("/", include_in_schema=False)
+def root():
+    return RedirectResponse(url="/ui")
+
 
 def normalize_team(name: str | None) -> str:
     if not name:
