@@ -55,8 +55,7 @@ def normalize_team(name: str | None) -> str:
     # collapse whitespace early
     s = re.sub(r"\s+", " ", s).strip()
 
-    # --- exact mappings for ESPN-style abbreviations ---
-    # (do this BEFORE generic replacements so it’s predictable)
+    # --- exact mappings (highest priority) ---
     exact = {
         "uconn": "connecticut",
         "fau": "florida atlantic",
@@ -70,24 +69,27 @@ def normalize_team(name: str | None) -> str:
         "charleston so": "charleston southern",
         "s illinois": "southern illinois",
 
-        # common short forms
+        # directional short forms
         "w michigan": "western michigan",
         "e michigan": "eastern michigan",
         "c michigan": "central michigan",
         "g washington": "george washington",
         "n illinois": "northern illinois",
 
+        # explicit State schools
         "san jose st": "san jose state",
         "youngstown st": "youngstown state",
+
+        # nicknames / common names
         "ole miss": "mississippi",
 
         # St Thomas variants
         "st thomas (mn)": "st thomas",
         "st thomas mn": "st thomas",
 
-        # ESPN shortDisplayName quirks you hit
+        # ESPN quirks
         "uic": "illinois chicago",
-        "boston u": "boston",
+        "boston u": "boston university",
         "miami": "miami fl",
     }
     if s in exact:
@@ -107,18 +109,22 @@ def normalize_team(name: str | None) -> str:
             s = full + s[len(prefix):]
             break
 
-    # Convert trailing "... st" -> "... state"
-    # This avoids breaking Saint schools like "st johns" (where "st" is at the start).
+    # convert trailing "... st" -> "... state"
+    # safe: does NOT affect "st johns", "st marys", etc.
     if s.endswith(" st"):
         s = re.sub(r"\bst$", "state", s)
 
-    # collapse whitespace
+    # convert trailing "... u" -> "... university"
+    s = re.sub(r"\bu\b$", "university", s)
+
+    # final whitespace cleanup
     s = re.sub(r"\s+", " ", s).strip()
     return s
 
 
 def matchup_key(away: str | None, home: str | None) -> str:
     return f"{normalize_team(away)} @ {normalize_team(home)}"
+
 
 
 # ---------- Health / env ----------
