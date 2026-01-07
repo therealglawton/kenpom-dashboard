@@ -463,9 +463,31 @@ def debug_merge(date_espn: str, date_kp: str):
 
 @app.get("/games")
 def games(date_espn: str, date_kp: str):
-    result = debug_merge(date_espn=date_espn, date_kp=date_kp)
-    return {"date_espn": result["date_espn"], "date_kp": result["date_kp"], "count": result["count"], "games": result["games"]}
+    """
+    Returns merged games for the UI.
+    Lenient: does NOT 500 if some games don't match.
+    """
+    try:
+        result = debug_merge(date_espn=date_espn, date_kp=date_kp)
+        return result
+    except HTTPException as e:
+        # If it’s the strict merge missing error, return partial info instead of crashing the UI
+        detail = e.detail if isinstance(e.detail, dict) else {"error": str(e.detail)}
 
+        # If this isn’t our merge-missing case, re-raise it (still loud)
+        if detail.get("error") != "Merge missing KenPom for some ESPN games":
+            raise
+
+        # Return a "soft" response: UI can still show a message
+        return {
+            "date_espn": date_espn,
+            "date_kp": date_kp,
+            "count": 0,
+            "games": [],
+            "missing_count": detail.get("missing_count", 0),
+            "missing_sample": detail.get("missing_sample", []),
+            "warning": "Some ESPN games did not match KenPom FanMatch for this date.",
+        }
 
 @app.get("/ui", response_class=HTMLResponse)
 def ui():
