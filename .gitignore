@@ -1,5 +1,15 @@
+# Virtual environments
 venv/
-__pycache__/
 .env
+.env.*
+
+# Python cache / build
+__pycache__/
 *.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# OS junk
 .DS_Store
