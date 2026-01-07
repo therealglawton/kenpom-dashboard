@@ -1,4 +1,6 @@
 # ---------- Team normalization ----------
+import re
+import unicodedata
 
 def normalize_team(name: str | None) -> str:
     if not name:
