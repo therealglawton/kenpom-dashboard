@@ -27,18 +27,48 @@ def normalize_team(name: str | None) -> str:
     s = unicodedata.normalize("NFKD", s)
     s = "".join(ch for ch in s if not unicodedata.combining(ch))
 
-    # normalize punctuation
+    # normalize punctuation/symbols
     s = s.replace("&", "and")
-    s = re.sub(r"[.'’]", "", s)
+    s = s.replace("-", " ")          # Gardner-Webb -> Gardner Webb
+    s = re.sub(r"[.'’]", "", s)      # remove dots/apostrophes
+
+    # collapse whitespace early
+    s = re.sub(r"\s+", " ", s).strip()
+
+    # --- exact mappings for ESPN-style abbreviations ---
+    # (do this BEFORE generic replacements so it’s predictable)
+    exact = {
+        "uconn": "connecticut",
+        "fau": "florida atlantic",
+        "fiu": "florida international",
+        "etsu": "east tennessee state",
+        "vmi": "vmi",
+        "uic": "uic",
+        "uab": "uab",
+        "jax state": "jacksonville state",
+        "purdue fw": "purdue fort wayne",
+        "charleston so": "charleston southern",
+        "s illinois": "southern illinois",
+        "boston u": "boston u",
+        "youngstown st": "youngstown state",
+        "w michigan": "western michigan",
+        "e michigan": "eastern michigan",
+        "c michigan": "central michigan",
+        "g washington": "george washington",
+        "n illinois": "northern illinois",
+        "san jose st": "san jose state",
+    }
+    if s in exact:
+        return exact[s]
 
     # expand common abbreviations at the START of the name
     start_replacements = {
-        "umass": "massachusetts",
         "w ": "western ",
         "e ": "eastern ",
         "c ": "central ",
         "g ": "george ",
         "n ": "northern ",
+        "umass": "massachusetts",
     }
     for prefix, full in start_replacements.items():
         if s.startswith(prefix):
@@ -46,7 +76,7 @@ def normalize_team(name: str | None) -> str:
             break
 
     # common abbreviations anywhere
-    s = re.sub(r"\bst\b", "state", s)  # st -> state
+    s = re.sub(r"\bst\b", "state", s)   # st -> state
 
     # collapse whitespace
     s = re.sub(r"\s+", " ", s).strip()
