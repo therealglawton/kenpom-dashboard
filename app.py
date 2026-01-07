@@ -83,9 +83,10 @@ def normalize_team(name: str | None) -> str:
             s = full + s[len(prefix):]
             break
 
-    # Don't turn "st thomas" into "state thomas"
-if "st thomas" not in s:
-    s = re.sub(r"\bst\b", "state", s)   # st -> state
+      # Don't turn "st thomas" into "state thomas"
+    if "st thomas" not in s:
+        s = re.sub(r"\bst\b", "state", s)   # st -> state
+
 
 
     # collapse whitespace
