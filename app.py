@@ -57,6 +57,14 @@ def normalize_team(name: str | None) -> str:
         "g washington": "george washington",
         "n illinois": "northern illinois",
         "san jose st": "san jose state",
+        "ole miss": "mississippi",
+        "st thomas (mn)": "st thomas",
+        "st thomas mn": "st thomas",
+        "southern illinois": "southern illinois",
+        "uic": "illinois chicago",
+        "boston u": "boston",
+        "miami": "miami fl",
+
     }
     if s in exact:
         return exact[s]
