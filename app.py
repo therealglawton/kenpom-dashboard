@@ -571,82 +571,295 @@ def ui():
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>College Basketball Dashboard</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 20px; }
-    .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-    button { padding: 9px 12px; font-size: 14px; cursor: pointer; }
-    .error { color: #b00020; white-space: pre-wrap; margin-top: 12px; }
-    table { border-collapse: collapse; width: 100%; margin-top: 14px; }
-    th, td { border-bottom: 1px solid #e5e5e5; padding: 8px; text-align: left; font-size: 14px; }
-    th { font-size: 12px; color: #444; text-transform: uppercase; letter-spacing: .04em; }
-    .muted { color: #666; font-size: 12px; }
-    .nowrap { white-space: nowrap; }
+    :root{
+      --bg: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --row: #fafafa;
+      --rowHover: #f1f5f9;
+      --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
+    }
 
-    /* --- Mobile-friendly table: horizontal scroll instead of squishing --- */
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    /* Layout */
+    .container{
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 22px 18px 28px;
+    }
+
+    h1 {
+      margin: 0 0 6px 0;
+      font-size: 34px;
+      letter-spacing: -0.02em;
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 14px;
+    }
+
+    /* Controls */
+    .controls {
+      margin-top: 14px;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      background: white;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .controls .group {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .controls label {
+      font-size: 12px;
+      color: #4b5563;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    input[type="text"], select {
+      padding: 9px 10px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 14px;
+      background: #fff;
+      color: var(--text);
+      outline: none;
+    }
+    input[type="text"] { min-width: 240px; }
+    select { min-width: 180px; }
+
+    .pill {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: #fff;
+      font-size: 13px;
+      color: #374151;
+      user-select: none;
+    }
+    .pill input { transform: translateY(1px); }
+
+    .spacer { flex: 1; }
+
+    /* Button */
+    button {
+      padding: 9px 12px;
+      font-size: 14px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: #111827;
+      color: white;
+      border-radius: 10px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.06);
+    }
+    button:hover { filter: brightness(1.05); }
+    button:active { transform: translateY(1px); }
+
+    .secondary {
+      background: #fff;
+      color: #111827;
+    }
+
+    .error {
+      color: #b00020;
+      white-space: pre-wrap;
+      margin-top: 12px;
+      padding: 10px 12px;
+      border: 1px solid #fecaca;
+      background: #fff1f2;
+      border-radius: 10px;
+      display: none;
+    }
+
+    /* Table wrapper */
     .table-wrap {
       width: 100%;
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
-      border: 1px solid #e5e5e5;
-      border-radius: 10px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
       margin-top: 14px;
+      box-shadow: var(--shadow);
+      max-height: 70vh;
+      overflow: auto;
+      background: white;
     }
-    .table-wrap table {
-      margin-top: 0;        /* wrapper handles spacing */
-      min-width: 720px;     /* prevents columns from compressing on phones */
+
+    table {
+      border-collapse: separate;
+      border-spacing: 0;
+      width: 100%;
+      min-width: 900px; /* keeps columns readable */
     }
+
+    th, td {
+      border-bottom: 1px solid var(--border);
+      padding: 10px 12px;
+      text-align: left;
+      font-size: 14px;
+      vertical-align: middle;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      background: white;
+      z-index: 2;
+      font-size: 12px;
+      color: #4b5563;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      box-shadow: 0 1px 0 var(--border);
+    }
+
+    tbody tr:nth-child(even) { background: var(--row); }
+    tbody tr:hover { background: var(--rowHover); }
+
+    .nowrap { white-space: nowrap; }
+
+    /* Column styling */
+    td.matchup {
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    td.network {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    td.kp {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    td.thrill {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      width: 90px;
+    }
+
+    /* Visual divider before KP columns */
+    th.kp, td.kp {
+      border-left: 1px solid var(--border);
+    }
+
+    /* Thrill cue */
+    td.thrill.low { color: #6b7280; }
+    td.thrill.mid { color: #2563eb; }
+    td.thrill.high { color: #dc2626; }
 
     /* Small mobile tweaks */
     @media (max-width: 640px) {
-      body { margin: 12px; }
-      th, td { padding: 10px 8px; font-size: 13px; }
-      h1 { font-size: 20px; margin-bottom: 6px; }
-      .row { gap: 10px; }
+      h1 { font-size: 22px; }
+      .container { padding: 14px 12px 18px; }
+      th, td { padding: 10px 10px; font-size: 13px; }
+      button { width: 100%; justify-content: center; }
+      input[type="text"], select { width: 100%; min-width: 0; }
+      .controls { gap: 8px; }
+      .controls .group { width: 100%; }
+      .spacer { display: none; }
     }
-/* Sticky table header (works inside the scroll wrapper) */
-.table-wrap {
-  max-height: 70vh;   /* lets you scroll the table on mobile */
-  overflow: auto;     /* needed for sticky inside a scroll container */
-}
-
-thead th {
-  position: sticky;
-  top: 0;
-  background: #fff;
-  z-index: 2;
-}
-
-thead th {
-  box-shadow: 0 1px 0 #e5e5e5;
-}
-
   </style>
 </head>
 <body>
-  <h1>College Basketball Dashboard</h1>
-  <div class="muted">ESPN start time & network + KenPom FanMatch predictions</div>
+  <div class="container">
+    <h1>College Basketball Dashboard</h1>
+    <div class="muted">ESPN start time & network + KenPom FanMatch predictions</div>
 
-  <div class="row" style="margin-top: 12px;">
-    <div class="muted">
-      Showing games for <strong><span id="dateLabel"></span></strong>
+    <div class="row">
+      <div class="muted">
+        Showing games for <strong><span id="dateLabel"></span></strong>
+      </div>
+      <button id="reloadBtn">Reload</button>
     </div>
-    <button id="reloadBtn">Reload</button>
-  </div>
 
-  <div id="error" class="error"></div>
+    <!-- Quick filters (no date picker) -->
+    <div class="controls" aria-label="Quick filters">
+      <div class="group">
+        <label for="q">Search</label>
+        <input id="q" type="text" placeholder="Team, matchup, network…" />
+      </div>
 
-  <div class="table-wrap">
-    <table id="tbl" style="display:none;">
-      <thead>
-        <tr>
-          <th data-sort="time">Start (Local)</th>
-          <th>Matchup</th>
-          <th>Network</th>
-          <th data-sort="kp">KenPom</th>
-          <th data-sort="thrill">Thrill</th>
-        </tr>
-      </thead>
-      <tbody id="tbody"></tbody>
-    </table>
+      <div class="group">
+        <label for="minThrill">Min thrill</label>
+        <select id="minThrill">
+          <option value="0">Any</option>
+          <option value="40">40+</option>
+          <option value="60">60+</option>
+          <option value="70">70+</option>
+        </select>
+      </div>
+
+      <div class="group">
+        <label for="networkFilter">Network</label>
+        <select id="networkFilter">
+          <option value="">All networks</option>
+        </select>
+      </div>
+
+      <div class="spacer"></div>
+
+      <span class="pill" title="Hide ESPN+ games">
+        <input id="hideEspnPlus" type="checkbox" />
+        <span>Hide ESPN+</span>
+      </span>
+
+      <span class="pill" title="Show only games with KenPom data available">
+        <input id="kpOnly" type="checkbox" checked />
+        <span>KenPom only</span>
+      </span>
+
+      <button id="clearFilters" class="secondary">Clear</button>
+    </div>
+
+    <div id="countLine" class="muted" style="margin-top:10px;"></div>
+
+    <div id="error" class="error"></div>
+
+    <div class="table-wrap">
+      <table id="tbl" style="display:none;">
+        <thead>
+          <tr>
+            <th data-sort="time">Start (Local)</th>
+            <th>Matchup</th>
+            <th>Network</th>
+            <th class="kp" data-sort="kp">KenPom</th>
+            <th data-sort="thrill">Thrill</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
   </div>
 
 <script>
@@ -655,6 +868,13 @@ thead th {
   let currentGames = [];
   let sortKey = "time";   // DEFAULT: time first
   let sortDir = "asc";
+
+  // Filter state
+  let qText = "";
+  let minThrill = 0;
+  let networkChoice = "";
+  let hideEspnPlus = false;
+  let kpOnly = true;
 
   function todayParts() {
     const d = new Date();
@@ -773,7 +993,7 @@ thead th {
     const arrow = sortDir === "asc" ? " ▲" : " ▼";
     if (sortKey === "time") thTime.textContent += arrow;
     if (sortKey === "kp") thKp.textContent += arrow;
-    if (sortKey === "thrill") thThrill.textContent += " ▼";
+    if (sortKey === "thrill") thThrill.textContent += arrow;
   }
 
   function renderTable(games) {
@@ -788,19 +1008,33 @@ thead th {
       tr.appendChild(start);
 
       const matchup = document.createElement("td");
+      matchup.className = "matchup";
       matchup.textContent = `${g.away} @ ${g.home}`;
       tr.appendChild(matchup);
 
       const network = document.createElement("td");
+      network.className = "network";
       network.textContent = g.network || "";
       tr.appendChild(network);
 
       const kp = document.createElement("td");
+      kp.className = "kp";
       kp.textContent = fmtPred(g);
       tr.appendChild(kp);
 
       const thrill = document.createElement("td");
-      thrill.textContent = g.kp_thrill ?? "";
+      const t = Number(g.kp_thrill);
+      let cls = "thrill";
+      if (Number.isFinite(t)) {
+        if (t >= 65) cls += " high";
+        else if (t >= 40) cls += " mid";
+        else cls += " low";
+        thrill.textContent = t.toFixed(1);
+      } else {
+        thrill.textContent = "";
+        cls += " low";
+      }
+      thrill.className = cls;
       tr.appendChild(thrill);
 
       $("tbody").appendChild(tr);
@@ -809,9 +1043,73 @@ thead th {
     $("tbl").style.display = "table";
   }
 
+  function buildNetworkOptions() {
+    const sel = $("networkFilter");
+    const current = sel.value;
+
+    // collect networks from currentGames
+    const set = new Set();
+    for (const g of currentGames) {
+      const n = (g.network || "").trim();
+      if (n) set.add(n);
+    }
+    const networks = Array.from(set).sort((a,b) => a.localeCompare(b));
+
+    // rebuild options (keep first "All networks")
+    sel.innerHTML = '<option value="">All networks</option>';
+    for (const n of networks) {
+      const opt = document.createElement("option");
+      opt.value = n;
+      opt.textContent = n;
+      sel.appendChild(opt);
+    }
+
+    // restore selection if still present
+    if (current) sel.value = current;
+  }
+
+  function applyFilters(games) {
+    const q = qText.trim().toLowerCase();
+    const minT = Number(minThrill) || 0;
+
+    return games.filter((g) => {
+      // KenPom-only toggle: require kp data (thrill is a good proxy here)
+      if (kpOnly) {
+        const t = Number(g.kp_thrill);
+        if (!Number.isFinite(t)) return false;
+      }
+
+      // Hide ESPN+
+      if (hideEspnPlus && (g.network || "").toUpperCase().includes("ESPN+")) return false;
+
+      // Network dropdown
+      if (networkChoice && (g.network || "") !== networkChoice) return false;
+
+      // Min thrill
+      if (minT > 0) {
+        const t = Number(g.kp_thrill);
+        if (!Number.isFinite(t) || t < minT) return false;
+      }
+
+      // Search
+      if (q) {
+        const hay = `${g.away || ""} ${g.home || ""} ${(g.network || "")} ${fmtPred(g)}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+
+      return true;
+    });
+  }
+
+  function updateCountLine(shown, total) {
+    $("countLine").textContent = `Showing ${shown} of ${total} games`;
+  }
+
   function applySortAndRender() {
     setHeaderLabels();
-    renderTable(sortGames(currentGames));
+    const filtered = applyFilters(currentGames);
+    updateCountLine(filtered.length, currentGames.length);
+    renderTable(sortGames(filtered));
   }
 
   function wireSorting() {
@@ -835,10 +1133,57 @@ thead th {
     });
   }
 
+  function wireFilters() {
+    $("q").addEventListener("input", (e) => {
+      qText = e.target.value || "";
+      applySortAndRender();
+    });
+
+    $("minThrill").addEventListener("change", (e) => {
+      minThrill = Number(e.target.value) || 0;
+      applySortAndRender();
+    });
+
+    $("networkFilter").addEventListener("change", (e) => {
+      networkChoice = e.target.value || "";
+      applySortAndRender();
+    });
+
+    $("hideEspnPlus").addEventListener("change", (e) => {
+      hideEspnPlus = !!e.target.checked;
+      applySortAndRender();
+    });
+
+    $("kpOnly").addEventListener("change", (e) => {
+      kpOnly = !!e.target.checked;
+      applySortAndRender();
+    });
+
+    $("clearFilters").addEventListener("click", () => {
+      qText = "";
+      minThrill = 0;
+      networkChoice = "";
+      hideEspnPlus = false;
+      kpOnly = true;
+
+      $("q").value = "";
+      $("minThrill").value = "0";
+      $("networkFilter").value = "";
+      $("hideEspnPlus").checked = false;
+      $("kpOnly").checked = true;
+
+      applySortAndRender();
+    });
+
+    $("reloadBtn").addEventListener("click", loadGames);
+  }
+
   async function loadGames() {
+    $("error").style.display = "none";
     $("error").textContent = "";
     $("tbl").style.display = "none";
     $("tbody").innerHTML = "";
+    $("countLine").textContent = "";
 
     const { yyyy, mm, dd } = todayParts();
     const date_kp = `${yyyy}-${mm}-${dd}`;
@@ -853,24 +1198,27 @@ thead th {
       resp = await fetch(url);
       data = await resp.json();
     } catch (e) {
-      $("error").textContent = `Failed to load games\n${e}`;
+      $("error").style.display = "block";
+      $("error").textContent = `Failed to load games\\n${e}`;
       return;
     }
 
     if (!resp.ok) {
+      $("error").style.display = "block";
       $("error").textContent = JSON.stringify(data, null, 2);
       return;
     }
 
     currentGames = data.games || [];
+    buildNetworkOptions();
     applySortAndRender();
   }
 
   wireSorting();
+  wireFilters();
   loadGames();
 </script>
 
 </body>
 </html>
 """
-
