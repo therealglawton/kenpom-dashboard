@@ -1,21 +1,41 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import HTMLResponse, RedirectResponse
 import os
 import re
 import unicodedata
 import requests
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 app = FastAPI()
 
-from fastapi.responses import RedirectResponse
 
 @app.get("/", include_in_schema=False)
 def root():
     return RedirectResponse(url="/ui")
 
+
+# ---------- Date helpers ----------
+
+def today_yyyymmdd_eastern() -> str:
+    return datetime.now(ZoneInfo("America/New_York")).strftime("%Y%m%d")
+
+
+def kp_date(d: str) -> str:
+    """
+    KenPom expects YYYY-MM-DD.
+    Accepts YYYYMMDD or YYYY-MM-DD and returns YYYY-MM-DD.
+    """
+    d = (d or "").strip()
+    if re.fullmatch(r"\d{8}", d):  # YYYYMMDD
+        return f"{d[:4]}-{d[4:6]}-{d[6:8]}"
+    return d
+
+
+# ---------- Team normalization ----------
 
 def normalize_team(name: str | None) -> str:
     if not name:
@@ -43,28 +63,32 @@ def normalize_team(name: str | None) -> str:
         "fiu": "florida international",
         "etsu": "east tennessee state",
         "vmi": "vmi",
-        "uic": "uic",
         "uab": "uab",
+
         "jax state": "jacksonville state",
         "purdue fw": "purdue fort wayne",
         "charleston so": "charleston southern",
         "s illinois": "southern illinois",
-        "boston u": "boston u",
-        "youngstown st": "youngstown state",
+
+        # common short forms
         "w michigan": "western michigan",
         "e michigan": "eastern michigan",
         "c michigan": "central michigan",
         "g washington": "george washington",
         "n illinois": "northern illinois",
+
         "san jose st": "san jose state",
+        "youngstown st": "youngstown state",
         "ole miss": "mississippi",
+
+        # St Thomas variants
         "st thomas (mn)": "st thomas",
         "st thomas mn": "st thomas",
-        "southern illinois": "southern illinois",
+
+        # ESPN shortDisplayName quirks you hit
         "uic": "illinois chicago",
         "boston u": "boston",
         "miami": "miami fl",
-
     }
     if s in exact:
         return exact[s]
@@ -83,11 +107,10 @@ def normalize_team(name: str | None) -> str:
             s = full + s[len(prefix):]
             break
 
-      # Don't turn "st thomas" into "state thomas"
-    if "st thomas" not in s:
-        s = re.sub(r"\bst\b", "state", s)   # st -> state
-
-
+    # Convert trailing "... st" -> "... state"
+    # This avoids breaking Saint schools like "st johns" (where "st" is at the start).
+    if s.endswith(" st"):
+        s = re.sub(r"\bst$", "state", s)
 
     # collapse whitespace
     s = re.sub(r"\s+", " ", s).strip()
@@ -97,6 +120,8 @@ def normalize_team(name: str | None) -> str:
 def matchup_key(away: str | None, home: str | None) -> str:
     return f"{normalize_team(away)} @ {normalize_team(home)}"
 
+
+# ---------- Health / env ----------
 
 @app.get("/health")
 def health():
@@ -109,10 +134,12 @@ def debug_env():
     if not key:
         raise HTTPException(
             status_code=500,
-            detail="KENPOM_API_KEY is missing. Check .env is in project root and load_dotenv() is at top of app.py.",
+            detail="KENPOM_API_KEY is missing. Check your Render env vars or .env locally.",
         )
     return {"kenpom_key_loaded": True, "key_length": len(key)}
 
+
+# ---------- ESPN debug ----------
 
 @app.get("/debug/espn")
 def debug_espn(date: str):
@@ -176,15 +203,17 @@ def debug_espn(date: str):
     return {"requested_url": r.url, "status_code": 200, "count": len(cleaned), "games": cleaned[:25]}
 
 
+# ---------- KenPom debug ----------
+
 @app.get("/debug/kenpom")
 def debug_kenpom(date: str):
-    # KenPom FanMatch expects YYYY-MM-DD
+    # KenPom FanMatch expects YYYY-MM-DD (we also accept YYYYMMDD)
     api_key = os.getenv("KENPOM_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="KENPOM_API_KEY is missing")
 
     url = "https://kenpom.com/api.php"
-    params = {"endpoint": "fanmatch", "d": date}
+    params = {"endpoint": "fanmatch", "d": kp_date(date)}
     headers = {"Authorization": f"Bearer {api_key}"}
 
     try:
@@ -215,11 +244,13 @@ def debug_kenpom(date: str):
     return {"requested_url": r.url, "status_code": 200, "count": len(data), "games": data[:25]}
 
 
+# ---------- Strict match debug ----------
+
 @app.get("/debug/match")
 def debug_match(date_espn: str, date_kp: str):
     """
     date_espn: YYYYMMDD
-    date_kp:   YYYY-MM-DD
+    date_kp:   YYYYMMDD or YYYY-MM-DD (we normalize for KenPom)
     """
     url = "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard"
     params = {"dates": date_espn, "groups": 50, "limit": 500}
@@ -232,7 +263,12 @@ def debug_match(date_espn: str, date_kp: str):
     if r.status_code != 200:
         raise HTTPException(
             status_code=500,
-            detail={"source": "espn", "requested_url": r.url, "status_code": r.status_code, "body_preview": r.text[:800]},
+            detail={
+                "source": "espn",
+                "requested_url": r.url,
+                "status_code": r.status_code,
+                "body_preview": r.text[:800],
+            },
         )
 
     data = r.json()
@@ -286,7 +322,7 @@ def debug_match(date_espn: str, date_kp: str):
         raise HTTPException(status_code=500, detail="KENPOM_API_KEY is missing")
 
     kp_url = "https://kenpom.com/api.php"
-    kp_params = {"endpoint": "fanmatch", "d": date_kp}
+    kp_params = {"endpoint": "fanmatch", "d": kp_date(date_kp)}
     kp_headers = {"Authorization": f"Bearer {api_key}"}
 
     try:
@@ -297,7 +333,12 @@ def debug_match(date_espn: str, date_kp: str):
     if kp_r.status_code != 200:
         raise HTTPException(
             status_code=500,
-            detail={"source": "kenpom", "requested_url": kp_r.url, "status_code": kp_r.status_code, "body_preview": kp_r.text[:800]},
+            detail={
+                "source": "kenpom",
+                "requested_url": kp_r.url,
+                "status_code": kp_r.status_code,
+                "body_preview": kp_r.text[:800],
+            },
         )
 
     kp_data = kp_r.json()
@@ -337,7 +378,7 @@ def debug_match(date_espn: str, date_kp: str):
 
     return {
         "date_espn": date_espn,
-        "date_kp": date_kp,
+        "date_kp": kp_date(date_kp),
         "counts": {
             "espn": len(espn_games),
             "kenpom": len(kp_games),
@@ -349,12 +390,14 @@ def debug_match(date_espn: str, date_kp: str):
     }
 
 
+# ---------- Strict merge (raises if any missing) ----------
+
 @app.get("/debug/merge")
 def debug_merge(date_espn: str, date_kp: str):
     """
     Returns merged games (ESPN time/network + KenPom FanMatch predictions)
     date_espn: YYYYMMDD
-    date_kp:   YYYY-MM-DD
+    date_kp:   YYYYMMDD or YYYY-MM-DD (we normalize for KenPom)
     """
     url = "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard"
     params = {"dates": date_espn, "groups": 50, "limit": 500}
@@ -417,7 +460,7 @@ def debug_merge(date_espn: str, date_kp: str):
         raise HTTPException(status_code=500, detail="KENPOM_API_KEY is missing")
 
     kp_url = "https://kenpom.com/api.php"
-    kp_params = {"endpoint": "fanmatch", "d": date_kp}
+    kp_params = {"endpoint": "fanmatch", "d": kp_date(date_kp)}
     kp_headers = {"Authorization": f"Bearer {api_key}"}
 
     kp_r = requests.get(kp_url, params=kp_params, headers=kp_headers, timeout=15)
@@ -469,15 +512,26 @@ def debug_merge(date_espn: str, date_kp: str):
             detail={"error": "Merge missing KenPom for some ESPN games", "missing_count": len(missing), "missing_sample": missing[:10]},
         )
 
-    return {"date_espn": date_espn, "date_kp": date_kp, "count": len(merged), "games": merged}
+    return {"date_espn": date_espn, "date_kp": kp_date(date_kp), "count": len(merged), "games": merged}
 
+
+# ---------- UI endpoint ----------
 
 @app.get("/games")
-def games(date_espn: str, date_kp: str):
+def games(
+    date_espn: str | None = Query(default=None),
+    date_kp: str | None = Query(default=None),
+):
     """
     Returns merged games for the UI.
     Lenient: does NOT 500 if some games don't match.
+    Accepts:
+      - date_espn: YYYYMMDD (defaults to today Eastern)
+      - date_kp:   YYYYMMDD or YYYY-MM-DD (defaults to today Eastern)
     """
+    date_espn = date_espn or today_yyyymmdd_eastern()
+    date_kp = date_kp or date_espn  # allow UI to pass only one style; we normalize later
+
     try:
         result = debug_merge(date_espn=date_espn, date_kp=date_kp)
         return result
@@ -492,13 +546,14 @@ def games(date_espn: str, date_kp: str):
         # Return a "soft" response: UI can still show a message
         return {
             "date_espn": date_espn,
-            "date_kp": date_kp,
+            "date_kp": kp_date(date_kp),
             "count": 0,
             "games": [],
             "missing_count": detail.get("missing_count", 0),
             "missing_sample": detail.get("missing_sample", []),
             "warning": "Some ESPN games did not match KenPom FanMatch for this date.",
         }
+
 
 @app.get("/ui", response_class=HTMLResponse)
 def ui():
