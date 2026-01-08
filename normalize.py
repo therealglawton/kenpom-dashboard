@@ -109,6 +109,15 @@ def normalize_team(name: str | None) -> str:
         "abilene chrstn": "abilene christian",
         "se missouri": "southeast missouri state",
         "so indiana": "southern indiana",
+        "bakersfield": "cal st bakersfield",
+        "csu northridge": "csun",
+        "ca baptist": "cal baptist",
+        "fullerton": "cal st fullerton",
+        "southeast missouri state": "southeast missouri",
+        "western ky": "western kentucky",
+        "seattle university": "seattle",
+        "lmu": "loyola marymount",
+
 
     }
     return post.get(s, s)
