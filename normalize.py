@@ -1,6 +1,8 @@
+# normalize.py
 # ---------- Team normalization ----------
 import re
 import unicodedata
+
 
 def normalize_team(name: str | None) -> str:
     if not name:
@@ -20,7 +22,7 @@ def normalize_team(name: str | None) -> str:
     # collapse whitespace early
     s = re.sub(r"\s+", " ", s).strip()
 
-    # --- exact mappings (highest priority) ---
+    # --- exact mappings (highest priority; pre-normalization aliases) ---
     exact = {
         "uconn": "connecticut",
         "fau": "florida atlantic",
@@ -84,7 +86,18 @@ def normalize_team(name: str | None) -> str:
 
     # final whitespace cleanup
     s = re.sub(r"\s+", " ", s).strip()
-    return s
+
+    # --- post-normalization aliases (runs AFTER punctuation/prefix rules) ---
+    # These fix ESPN/KenPom naming mismatches found via /debug/match.
+    post = {
+        "fdu": "fairleigh dickinson",
+        "fgcu": "florida gulf coast",
+        "app state": "appalachian state",
+        "coastal": "coastal carolina",
+        "nc aandt": "north carolina aandt",
+        "long island": "liu",
+    }
+    return post.get(s, s)
 
 
 def matchup_key(away: str | None, home: str | None) -> str:
