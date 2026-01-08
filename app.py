@@ -14,6 +14,8 @@ from normalize import normalize_team, matchup_key
 
 app = FastAPI()
 
+from fastapi.responses import FileResponse
+
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
@@ -22,7 +24,8 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 @app.get("/favicon.ico", include_in_schema=False)
 def favicon():
-    return RedirectResponse(url="/static/favicon.png")
+    return FileResponse(STATIC_DIR / "favicon.ico")
+
 
 
 @app.get("/", include_in_schema=False)
