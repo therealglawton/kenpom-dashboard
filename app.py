@@ -475,6 +475,7 @@ def debug_merge(date_espn: str, date_kp: str):
                 "home": e["home"],
                 "start_utc": e["start_utc"],
                 "network": e["network"],
+                "kp_found": True,
                 "kp_game_id": kp.get("GameID"),
                 "kp_home_pred": kp.get("HomePred"),
                 "kp_away_pred": kp.get("VisitorPred"),
@@ -494,6 +495,117 @@ def debug_merge(date_espn: str, date_kp: str):
 
     return {"date_espn": date_espn, "date_kp": kp_date(date_kp), "count": len(merged), "games": merged}
 
+# ---------- Lenient merge (never drops ESPN games) ----------
+
+def merge_lenient(date_espn: str, date_kp: str) -> dict:
+    """
+    ESPN-first merge: always returns all ESPN games.
+    If KenPom FanMatch is missing, KP fields are None.
+    """
+
+    # --- ESPN ---
+    url = "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard"
+    params = {"dates": date_espn, "groups": 50, "limit": 500}
+
+    r = requests.get(url, params=params, timeout=15)
+    if r.status_code != 200:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "source": "espn",
+                "requested_url": r.url,
+                "status_code": r.status_code,
+                "body_preview": r.text[:800],
+            },
+        )
+
+    data = r.json()
+    espn_games = parse_espn_games(data)
+
+    # --- KenPom ---
+    api_key = os.getenv("KENPOM_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="KENPOM_API_KEY is missing")
+
+    kp_url = "https://kenpom.com/api.php"
+    kp_params = {"endpoint": "fanmatch", "d": kp_date(date_kp)}
+    kp_headers = {"Authorization": f"Bearer {api_key}"}
+
+    kp_r = requests.get(kp_url, params=kp_params, headers=kp_headers, timeout=15)
+    if kp_r.status_code != 200:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "source": "kenpom",
+                "requested_url": kp_r.url,
+                "status_code": kp_r.status_code,
+                "body_preview": kp_r.text[:800],
+            },
+        )
+
+    # SAFER JSON parsing (so we get useful JSON errors instead of HTML 500 pages)
+    try:
+        kp_data = kp_r.json()
+    except Exception as ex:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "source": "kenpom",
+                "error": "KenPom returned non-JSON",
+                "requested_url": kp_r.url,
+                "status_code": kp_r.status_code,
+                "body_preview": kp_r.text[:800],
+                "exception": f"{type(ex).__name__}: {ex}",
+            },
+        )
+
+    if not isinstance(kp_data, list):
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "source": "kenpom",
+                "error": "KenPom expected list",
+                "requested_url": kp_r.url,
+                "status_code": kp_r.status_code,
+                "type": str(type(kp_data)),
+                "data_preview": kp_data,
+                "body_preview": kp_r.text[:800],
+            },
+        )
+
+    kp_by_key = {}
+    for g in kp_data:
+        key = matchup_key(g.get("Visitor"), g.get("Home"))
+        kp_by_key[key] = g
+
+    # --- LEFT JOIN: ESPN -> KP ---
+    merged = []
+    for e in espn_games:
+        kp = kp_by_key.get(e["key"])
+
+        merged.append(
+            {
+                "key": e["key"],
+                "event_id": e["event_id"],
+                "away": e["away"],
+                "home": e["home"],
+                "start_utc": e["start_utc"],
+                "network": e["network"],
+
+                "kp_found": kp is not None,
+
+                "kp_game_id": kp.get("GameID") if kp else None,
+                "kp_home_pred": kp.get("HomePred") if kp else None,
+                "kp_away_pred": kp.get("VisitorPred") if kp else None,
+                "kp_home_wp": kp.get("HomeWP") if kp else None,
+                "kp_thrill": kp.get("ThrillScore") if kp else None,
+                "kp_pred_tempo": kp.get("PredTempo") if kp else None,
+                "kp_home_rank": kp.get("HomeRank") if kp else None,
+                "kp_away_rank": kp.get("VisitorRank") if kp else None,
+            }
+        )
+
+    return {"date_espn": date_espn, "date_kp": kp_date(date_kp), "count": len(merged), "games": merged}
 
 # ---------- UI endpoint ----------
 
@@ -516,18 +628,32 @@ def build_games_for_date(date_espn: str, date_kp: str | None = None) -> dict:
     except HTTPException as e:
         detail = e.detail if isinstance(e.detail, dict) else {"error": str(e.detail)}
 
+        # Anything other than "missing KP games" should propagate as an actual error
         if detail.get("error") != "Merge missing KenPom for some ESPN games":
             raise
 
-        return {
-            "date_espn": date_espn,
-            "date_kp": kp_date(date_kp),
-            "count": 0,
-            "games": [],
-            "missing_count": detail.get("missing_count", 0),
-            "missing_sample": detail.get("missing_sample", []),
-            "warning": "Some ESPN games did not match KenPom FanMatch for this date.",
-        }
+        # If strict merge failed due to missing KP matches, fall back to lenient merge.
+        # But also ensure we ALWAYS return JSON (even if lenient merge fails).
+        try:
+            lenient = merge_lenient(date_espn=date_espn, date_kp=date_kp)
+        except HTTPException as e2:
+            detail2 = e2.detail if isinstance(e2.detail, dict) else {"error": str(e2.detail)}
+            return {
+                "date_espn": date_espn,
+                "date_kp": kp_date(date_kp),
+                "count": 0,
+                "games": [],
+                "warning": "Lenient merge failed; see error for details.",
+                "error": detail2,
+                "missing_count": detail.get("missing_count", 0),
+                "missing_sample": detail.get("missing_sample", []),
+            }
+
+        # keep the diagnostics from the strict merge exception
+        lenient["missing_count"] = detail.get("missing_count", 0)
+        lenient["missing_sample"] = detail.get("missing_sample", [])
+        lenient["warning"] = "Some ESPN games did not match KenPom FanMatch for this date."
+        return lenient
 
 
 from pathlib import Path
@@ -538,4 +664,3 @@ UI_PATH = Path(__file__).with_name("ui.html")
 @app.get("/ui", response_class=HTMLResponse)
 def ui():
     return UI_PATH.read_text(encoding="utf-8")
-

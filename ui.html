@@ -50,6 +50,16 @@
       margin-top: 14px;
     }
 
+    input[type="date"]{
+      padding: 9px 10px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 14px;
+      background: #fff;
+      color: var(--text);
+      outline: none;
+    }
+
     /* Controls */
     .controls {
       margin-top: 14px;
@@ -223,6 +233,12 @@
     td.thrill.mid { color: #2563eb; }
     td.thrill.high { color: #dc2626; }
 
+    /* KP missing cue */
+    tr.kp-missing td.kp,
+    tr.kp-missing td.thrill {
+      opacity: 0.6;
+    }
+
     /* Small mobile tweaks */
     @media (max-width: 640px) {
       h1 { font-size: 22px; }
@@ -245,10 +261,17 @@
       <div class="muted">
         Showing games for <strong><span id="dateLabel"></span></strong>
       </div>
-      <button id="reloadBtn">Reload</button>
+
+      <div class="spacer"></div>
+
+      <div class="group" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <button id="prevDayBtn" class="secondary" type="button">◀</button>
+        <input id="datePicker" type="date" />
+        <button id="nextDayBtn" class="secondary" type="button">▶</button>
+        <button id="reloadBtn" type="button">Reload</button>
+      </div>
     </div>
 
-    <!-- Quick filters (no date picker) -->
     <div class="controls" aria-label="Quick filters">
       <div class="group">
         <label for="q">Search</label>
@@ -324,12 +347,45 @@
   let hideEspnPlus = false;
   let kpOnly = true;
 
+  // ---- Null-safe formatters ----
+  function fmtNum(v, digits = 0) {
+    if (v === null || v === undefined || v === "") return "—";
+    const n = Number(v);
+    return Number.isFinite(n) ? n.toFixed(digits) : "—";
+  }
+
+  function fmtPct(v, digits = 0) {
+    if (v === null || v === undefined || v === "") return "—";
+    const n = Number(v);
+    return Number.isFinite(n) ? `${n.toFixed(digits)}%` : "—";
+  }
+
   function todayParts() {
     const d = new Date();
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, "0");
     const dd = String(d.getDate()).padStart(2, "0");
     return { yyyy, mm, dd };
+  }
+
+  function yyyymmddFromDateInput(value) {
+    return (value || "").replaceAll("-", "");
+  }
+
+  function addDaysToYYYYMMDD(yyyymmdd, deltaDays) {
+    const yyyy = Number(yyyymmdd.slice(0,4));
+    const mm = Number(yyyymmdd.slice(4,6));
+    const dd = Number(yyyymmdd.slice(6,8));
+    const d = new Date(yyyy, mm - 1, dd);
+    d.setDate(d.getDate() + deltaDays);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}${m}${day}`;
+  }
+
+  function isoFromYYYYMMDD(yyyymmdd) {
+    return `${yyyymmdd.slice(0,4)}-${yyyymmdd.slice(4,6)}-${yyyymmdd.slice(6,8)}`;
   }
 
   function formatLocalTime(utcIso) {
@@ -356,17 +412,17 @@
       g.kp_away_pred == null ||
       g.kp_home_wp == null
     ) {
-      return "";
+      return "—";
     }
 
     const homeWP = Number(g.kp_home_wp);
     const awayWP = 100 - homeWP;
 
     if (homeWP >= 50) {
-      return `${g.home} ${g.kp_home_pred}-${g.kp_away_pred} (${homeWP}%)`;
+      return `${g.home} ${g.kp_home_pred}-${g.kp_away_pred} (${fmtPct(homeWP, 0)})`;
     }
 
-    return `${g.away} ${g.kp_away_pred}-${g.kp_home_pred} (${awayWP}%)`;
+    return `${g.away} ${g.kp_away_pred}-${g.kp_home_pred} (${fmtPct(awayWP, 0)})`;
   }
 
   function getSortValue(g, key) {
@@ -450,6 +506,9 @@
     for (const g of games) {
       const tr = document.createElement("tr");
 
+      // Mark rows missing KP data (lenient merge)
+      if (g.kp_found === false) tr.classList.add("kp-missing");
+
       const start = document.createElement("td");
       start.className = "nowrap";
       start.textContent = formatLocalTime(g.start_utc);
@@ -493,7 +552,7 @@
         else cls += " low";
         thrill.textContent = t.toFixed(1);
       } else {
-        thrill.textContent = "";
+        thrill.textContent = "—";
         cls += " low";
       }
       thrill.className = cls;
@@ -509,7 +568,6 @@
     const sel = $("networkFilter");
     const current = sel.value;
 
-    // collect networks from currentGames
     const set = new Set();
     for (const g of currentGames) {
       const n = (g.network || "").trim();
@@ -517,7 +575,6 @@
     }
     const networks = Array.from(set).sort((a,b) => a.localeCompare(b));
 
-    // rebuild options (keep first "All networks")
     sel.innerHTML = '<option value="">All networks</option>';
     for (const n of networks) {
       const opt = document.createElement("option");
@@ -526,7 +583,6 @@
       sel.appendChild(opt);
     }
 
-    // restore selection if still present
     if (current) sel.value = current;
   }
 
@@ -535,25 +591,20 @@
     const minT = Number(minThrill) || 0;
 
     return games.filter((g) => {
-      // KenPom-only toggle: require kp data (thrill is a good proxy here)
       if (kpOnly) {
         const t = Number(g.kp_thrill);
         if (!Number.isFinite(t)) return false;
       }
 
-      // Hide ESPN+
       if (hideEspnPlus && (g.network || "").toUpperCase().includes("ESPN+")) return false;
 
-      // Network dropdown
       if (networkChoice && (g.network || "") !== networkChoice) return false;
 
-      // Min thrill
       if (minT > 0) {
         const t = Number(g.kp_thrill);
         if (!Number.isFinite(t) || t < minT) return false;
       }
 
-      // Search
       if (q) {
         const hay = `${g.away || ""} ${g.home || ""} ${(g.network || "")} ${fmtPred(g)}`.toLowerCase();
         if (!hay.includes(q)) return false;
@@ -637,29 +688,56 @@
       applySortAndRender();
     });
 
-    $("reloadBtn").addEventListener("click", loadGames);
+    // Reload button
+    $("reloadBtn").addEventListener("click", () => loadGames());
+
+    // ✅ Date picker + prev/next (MOVED INSIDE wireFilters)
+    $("datePicker").addEventListener("change", (e) => {
+      const yyyymmdd = yyyymmddFromDateInput(e.target.value);
+      loadGames(yyyymmdd);
+    });
+
+    $("prevDayBtn").addEventListener("click", () => {
+      const cur = yyyymmddFromDateInput($("datePicker").value);
+      loadGames(addDaysToYYYYMMDD(cur, -1));
+    });
+
+    $("nextDayBtn").addEventListener("click", () => {
+      const cur = yyyymmddFromDateInput($("datePicker").value);
+      loadGames(addDaysToYYYYMMDD(cur, 1));
+    });
   }
 
-  async function loadGames() {
+  async function loadGames(yyyymmdd = null) {
     $("error").style.display = "none";
     $("error").textContent = "";
     $("tbl").style.display = "none";
     $("tbody").innerHTML = "";
     $("countLine").textContent = "";
 
-    const { yyyy, mm, dd } = todayParts();
-    const date_kp = `${yyyy}-${mm}-${dd}`;
-    const date_espn = `${yyyy}${mm}${dd}`;
+    // Default to datePicker value; if empty, default to today
+    if (!yyyymmdd) {
+      const pickerVal = $("datePicker")?.value || "";
+      yyyymmdd = pickerVal ? yyyymmddFromDateInput(pickerVal) : null;
+    }
+    if (!yyyymmdd) {
+      const { yyyy, mm, dd } = todayParts();
+      yyyymmdd = `${yyyy}${mm}${dd}`;
+    }
 
+    const date_kp = isoFromYYYYMMDD(yyyymmdd);
+    const date_espn = yyyymmdd;
+
+    // keep UI in sync
     $("dateLabel").textContent = date_kp;
+    $("datePicker").value = date_kp;
 
-    // Fetch ESPN urls (separate endpoint; UI does NOT build URLs)
+    // Fetch ESPN urls
     try {
       const urlResp = await fetch(`/urls/espn?date_espn=${date_espn}`);
       const urlData = await urlResp.json();
       urlsByEventId = (urlResp.ok && urlData.urls_by_event_id) ? urlData.urls_by_event_id : {};
     } catch (e) {
-      // Non-fatal: links just won't show
       urlsByEventId = {};
     }
 
@@ -686,6 +764,7 @@
     applySortAndRender();
   }
 
+  // ✅ only calls at bottom
   wireSorting();
   wireFilters();
   loadGames();
