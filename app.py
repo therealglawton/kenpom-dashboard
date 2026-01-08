@@ -14,6 +14,16 @@ from normalize import normalize_team, matchup_key
 
 app = FastAPI()
 
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
+
+STATIC_DIR = Path(__file__).with_name("static")
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return RedirectResponse(url="/static/favicon.png")
+
 
 @app.get("/", include_in_schema=False)
 def root():
@@ -351,30 +361,10 @@ def debug_match(date_espn: str, date_kp: str):
         "sample": {"matched": matched[:10], "espn_only": espn_only[:10], "kenpom_only": kenpom_only[:10]},
     }
 
-
-# ---------- Strict merge (raises if any missing) ----------
-
-@app.get("/debug/merge")
-def debug_merge(date_espn: str, date_kp: str):
-    """
-    Returns merged games (ESPN time/network + KenPom FanMatch predictions)
-    date_espn: YYYYMMDD
-    date_kp:   YYYYMMDD or YYYY-MM-DD (we normalize for KenPom)
-    """
-    url = "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard"
-    params = {"dates": date_espn, "groups": 50, "limit": 500}
-
-    r = requests.get(url, params=params, timeout=15)
-    if r.status_code != 200:
-        raise HTTPException(
-            status_code=500,
-            detail={"source": "espn", "requested_url": r.url, "status_code": r.status_code, "body_preview": r.text[:800]},
-        )
-
-    data = r.json()
+def parse_espn_games(data: dict) -> list[dict]:
     events = data.get("events", [])
-
     espn_games = []
+
     for ev in events:
         competitions = ev.get("competitions", [])
         if not competitions:
@@ -416,6 +406,31 @@ def debug_merge(date_espn: str, date_kp: str):
                 "key": matchup_key(away, home),
             }
         )
+
+    return espn_games
+
+# ---------- Strict merge (raises if any missing) ----------
+
+@app.get("/debug/merge")
+def debug_merge(date_espn: str, date_kp: str):
+    """
+    Returns merged games (ESPN time/network + KenPom FanMatch predictions)
+    date_espn: YYYYMMDD
+    date_kp:   YYYYMMDD or YYYY-MM-DD (we normalize for KenPom)
+    """
+    url = "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard"
+    params = {"dates": date_espn, "groups": 50, "limit": 500}
+
+    r = requests.get(url, params=params, timeout=15)
+    if r.status_code != 200:
+        raise HTTPException(
+            status_code=500,
+            detail={"source": "espn", "requested_url": r.url, "status_code": r.status_code, "body_preview": r.text[:800]},
+        )
+
+    data = r.json()
+    espn_games = parse_espn_games(data)
+
 
     api_key = os.getenv("KENPOM_API_KEY")
     if not api_key:
@@ -484,28 +499,23 @@ def games(
     date_espn: str | None = Query(default=None),
     date_kp: str | None = Query(default=None),
 ):
-    """
-    Returns merged games for the UI.
-    Lenient: does NOT 500 if some games don't match.
-    Accepts:
-      - date_espn: YYYYMMDD (defaults to today Eastern)
-      - date_kp:   YYYYMMDD or YYYY-MM-DD (defaults to today Eastern)
-    """
     date_espn = date_espn or today_yyyymmdd_eastern()
-    date_kp = date_kp or date_espn  # allow UI to pass only one style; we normalize later
+    date_kp = date_kp or date_espn
+    return build_games_for_date(date_espn, date_kp)
 
+
+def build_games_for_date(date_espn: str, date_kp: str | None = None) -> dict:
+    date_kp = date_kp or date_espn
+
+    # reuse existing strict merge logic
     try:
-        result = debug_merge(date_espn=date_espn, date_kp=date_kp)
-        return result
+        return debug_merge(date_espn=date_espn, date_kp=date_kp)
     except HTTPException as e:
-        # If it’s the strict merge missing error, return partial info instead of crashing the UI
         detail = e.detail if isinstance(e.detail, dict) else {"error": str(e.detail)}
 
-        # If this isn’t our merge-missing case, re-raise it (still loud)
         if detail.get("error") != "Merge missing KenPom for some ESPN games":
             raise
 
-        # Return a "soft" response: UI can still show a message
         return {
             "date_espn": date_espn,
             "date_kp": kp_date(date_kp),
