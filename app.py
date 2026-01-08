@@ -19,6 +19,53 @@ app = FastAPI()
 def root():
     return RedirectResponse(url="/ui")
 
+def espn_game_url(event_id: str | None) -> str:
+    if not event_id:
+        return ""
+    # Durable form:
+    return f"https://www.espn.com/mens-college-basketball/game?gameId={event_id}"
+    # If you prefer the pretty path:
+    # return f"https://www.espn.com/mens-college-basketball/game/_/gameId/{event_id}"
+
+
+@app.get("/urls/espn")
+def urls_espn(date_espn: str | None = Query(default=None)):
+    """
+    Returns ESPN game page URLs keyed by event_id for a given date.
+    date_espn: YYYYMMDD (defaults to today Eastern)
+    """
+    date_espn = date_espn or today_yyyymmdd_eastern()
+
+    url = "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard"
+    params = {"dates": date_espn, "groups": 50, "limit": 500}
+
+    try:
+        r = requests.get(url, params=params, timeout=15)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"ESPN request failed: {type(e).__name__}: {e}")
+
+    if r.status_code != 200:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "source": "espn",
+                "requested_url": r.url,
+                "status_code": r.status_code,
+                "body_preview": r.text[:800],
+            },
+        )
+
+    data = r.json()
+    events = data.get("events", [])
+
+    urls_by_event_id: dict[str, str] = {}
+    for ev in events:
+        event_id = ev.get("id")
+        if event_id:
+            event_id = str(event_id)
+            urls_by_event_id[event_id] = espn_game_url(event_id)
+
+    return {"date_espn": date_espn, "count": len(urls_by_event_id), "urls_by_event_id": urls_by_event_id}
 
 # ---------- Date helpers ----------
 

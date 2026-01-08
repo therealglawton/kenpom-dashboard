@@ -186,6 +186,15 @@
       letter-spacing: -0.01em;
     }
 
+    td.matchup a{
+      color: inherit;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    td.matchup a:hover{
+      text-decoration: underline;
+    }
+
     td.network {
       color: var(--muted);
       font-size: 13px;
@@ -302,6 +311,9 @@
   let currentGames = [];
   let sortKey = "time";   // DEFAULT: time first
   let sortDir = "asc";
+
+  // ESPN URL map, fetched from backend /urls/espn
+  let urlsByEventId = {};
 
   // Filter state
   let qText = "";
@@ -443,7 +455,21 @@
 
       const matchup = document.createElement("td");
       matchup.className = "matchup";
-      matchup.textContent = `${g.away} @ ${g.home}`;
+
+      const eventId = String(g.event_id || "");
+      const href = urlsByEventId[eventId] || "";
+
+      if (href) {
+        const a = document.createElement("a");
+        a.href = href;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.textContent = `${g.away} @ ${g.home}`;
+        matchup.appendChild(a);
+      } else {
+        matchup.textContent = `${g.away} @ ${g.home}`;
+      }
+
       tr.appendChild(matchup);
 
       const network = document.createElement("td");
@@ -625,6 +651,16 @@
 
     $("dateLabel").textContent = date_kp;
 
+    // Fetch ESPN urls (separate endpoint; UI does NOT build URLs)
+    try {
+      const urlResp = await fetch(`/urls/espn?date_espn=${date_espn}`);
+      const urlData = await urlResp.json();
+      urlsByEventId = (urlResp.ok && urlData.urls_by_event_id) ? urlData.urls_by_event_id : {};
+    } catch (e) {
+      // Non-fatal: links just won't show
+      urlsByEventId = {};
+    }
+
     const url = `/games?date_espn=${date_espn}&date_kp=${date_kp}`;
 
     let resp, data;
@@ -633,7 +669,7 @@
       data = await resp.json();
     } catch (e) {
       $("error").style.display = "block";
-      $("error").textContent = `Failed to load games\\n${e}`;
+      $("error").textContent = `Failed to load games\n${e}`;
       return;
     }
 
