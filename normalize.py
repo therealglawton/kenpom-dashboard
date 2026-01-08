@@ -88,7 +88,6 @@ def normalize_team(name: str | None) -> str:
     s = re.sub(r"\s+", " ", s).strip()
 
     # --- post-normalization aliases (runs AFTER punctuation/prefix rules) ---
-    # These fix ESPN/KenPom naming mismatches found via /debug/match.
     post = {
         "fdu": "fairleigh dickinson",
         "fgcu": "florida gulf coast",
@@ -104,10 +103,9 @@ def normalize_team(name: str | None) -> str:
         "ul monroe": "louisiana monroe",
         "mtsu": "middle tennessee",
 
-        # likely (based on ESPN abbreviations)
         "santa barbara": "uc santa barbara",
         "abilene chrstn": "abilene christian",
-        "se missouri": "southeast missouri state",
+        "se missouri": "southeast missouri",          # <-- FIXED (one-hop)
         "so indiana": "southern indiana",
         "bakersfield": "cal st bakersfield",
         "csu northridge": "csun",
@@ -117,8 +115,6 @@ def normalize_team(name: str | None) -> str:
         "western ky": "western kentucky",
         "seattle university": "seattle",
         "lmu": "loyola marymount",
-
-
     }
     return post.get(s, s)
 
