@@ -96,6 +96,20 @@ def normalize_team(name: str | None) -> str:
         "coastal": "coastal carolina",
         "nc aandt": "north carolina aandt",
         "long island": "liu",
+        "ut martin": "tennessee martin",
+        "sam houston": "sam houston state",
+        "s dakota state": "south dakota state",
+        "northern dakota state": "north dakota state",
+        "omaha": "nebraska omaha",
+        "ul monroe": "louisiana monroe",
+        "mtsu": "middle tennessee",
+
+        # likely (based on ESPN abbreviations)
+        "santa barbara": "uc santa barbara",
+        "abilene chrstn": "abilene christian",
+        "se missouri": "southeast missouri state",
+        "so indiana": "southern indiana",
+
     }
     return post.get(s, s)
 
