@@ -257,6 +257,7 @@
     tr.kp-missing td.thrill {
       opacity: 0.6;
     }
+
     /* ---------- Future date mode ---------- */
     html.future th.kp,
     html.future td.kp,
@@ -265,13 +266,9 @@
       display: none;
     }
 
-
     /* Mobile layout */
     @media (max-width: 640px) {
-
-      /* Typography & spacing */
       .page-title { font-size: 22px; }
-
       .container { padding: 14px 12px 18px; }
 
       th, td {
@@ -279,23 +276,16 @@
         font-size: 13px;
       }
 
-      /* Inputs should be full-width on mobile */
       input[type="text"],
       select {
         width: 100%;
         min-width: 0;
       }
 
-      /* Controls stack cleanly */
       .controls { gap: 8px; }
-
       .controls .group { width: 100%; }
-
       .spacer { display: none; }
 
-      /* ---- TOP DATE ROW FIX ---- */
-
-      /* Stack the top row instead of flex chaos */
       .row {
         display: grid;
         grid-template-columns: 1fr;
@@ -303,21 +293,18 @@
         margin-top: 12px;
       }
 
-      /* Hide desktop-only arrows */
       #prevDayBtn,
       #nextDayBtn {
         display: none;
       }
 
-      /* Date picker: usable, native-feeling */
       #datePicker {
         width: 100%;
         height: 44px;
-        font-size: 16px;   /* prevents iOS zoom */
+        font-size: 16px;
         border-radius: 12px;
       }
 
-      /* Reload button: intentional full-width */
       #reloadBtn {
         width: 100%;
         height: 44px;
@@ -333,7 +320,6 @@
     </header>
 
     <div class="row">
-      <!-- ✅ REPLACED: "Showing games for ..." with "Updated ... ago" -->
       <div class="muted" aria-live="polite">
         Updated <strong><span id="updatedAgo">—</span></strong> ago
       </div>
@@ -416,6 +402,23 @@
   // ESPN URL map, fetched from backend /urls/espn
   let urlsByEventId = {};
 
+  // Live polling (only while any game is live)
+  let livePollTimer = null;
+
+  function setLivePolling(enabled) {
+    if (enabled) {
+      if (livePollTimer) return;
+      livePollTimer = setInterval(() => {
+        const cur = yyyymmddFromDateInput($("datePicker").value);
+        // ✅ silent refresh so table doesn't blank
+        loadGames(cur, true);
+      }, 5000); // 5 seconds
+    } else {
+      if (livePollTimer) clearInterval(livePollTimer);
+      livePollTimer = null;
+    }
+  }
+
   // Filter state
   let qText = "";
   let minThrill = 0;
@@ -423,7 +426,7 @@
   let hideEspnPlus = false;
   let kpOnly = true;
 
-  // ✅ Updated-ago ticker (frontend-only)
+  // Updated-ago ticker (frontend-only)
   let lastUpdatedMs = null;
   let updatedTimer = null;
 
@@ -512,11 +515,18 @@
   }
 
   function fmtPred(g) {
-    if (
-      g.kp_home_pred == null ||
-      g.kp_away_pred == null ||
-      g.kp_home_wp == null
-    ) {
+    const state = String(g.status_state || "").toLowerCase();
+
+    // Live or final: show ESPN score + status detail
+    if (state === "in" || state === "post") {
+      const a = (g.away_score === null || g.away_score === undefined) ? "—" : String(g.away_score);
+      const h = (g.home_score === null || g.home_score === undefined) ? "—" : String(g.home_score);
+      const detail = String(g.status_detail || "").trim();
+      return detail ? (a + "-" + h + " (" + detail + ")") : (a + "-" + h);
+    }
+
+    // KenPom prediction (pregame)
+    if (g.kp_home_pred == null || g.kp_away_pred == null || g.kp_home_wp == null) {
       return "—";
     }
 
@@ -524,10 +534,10 @@
     const awayWP = 100 - homeWP;
 
     if (homeWP >= 50) {
-      return `${g.home} ${g.kp_home_pred}-${g.kp_away_pred} (${fmtPct(homeWP, 0)})`;
+      return String(g.home) + " " + String(g.kp_home_pred) + "-" + String(g.kp_away_pred) + " (" + fmtPct(homeWP, 0) + ")";
     }
 
-    return `${g.away} ${g.kp_away_pred}-${g.kp_home_pred} (${fmtPct(awayWP, 0)})`;
+    return String(g.away) + " " + String(g.kp_away_pred) + "-" + String(g.kp_home_pred) + " (" + fmtPct(awayWP, 0) + ")";
   }
 
   function getSortValue(g, key) {
@@ -536,13 +546,16 @@
       const t = Date.parse(g.start_utc);
       return Number.isFinite(t) ? t : null;
     }
+
     if (key === "kp") {
       return winnerWP(g);
     }
+
     if (key === "thrill") {
       const n = Number(g.kp_thrill);
       return Number.isFinite(n) ? n : null;
     }
+
     return null;
   }
 
@@ -796,7 +809,7 @@
     // Reload button
     $("reloadBtn").addEventListener("click", () => loadGames());
 
-    // ✅ Date picker + prev/next
+    // Date picker + prev/next
     $("datePicker").addEventListener("change", (e) => {
       const yyyymmdd = yyyymmddFromDateInput(e.target.value);
       loadGames(yyyymmdd);
@@ -813,12 +826,17 @@
     });
   }
 
-  async function loadGames(yyyymmdd = null) {
+  // ✅ Updated: silent polling support
+  async function loadGames(yyyymmdd = null, silent = false) {
     $("error").style.display = "none";
     $("error").textContent = "";
-    $("tbl").style.display = "none";
-    $("tbody").innerHTML = "";
-    $("countLine").textContent = "";
+
+    // ✅ only blank UI on non-silent loads (manual reload/date change)
+    if (!silent) {
+      $("tbl").style.display = "none";
+      $("tbody").innerHTML = "";
+      $("countLine").textContent = "";
+    }
 
     // Default to datePicker value; if empty, default to today
     if (!yyyymmdd) {
@@ -864,7 +882,10 @@
     }
 
     currentGames = data.games || [];
-    
+
+    const hasLive = currentGames.some(g => String(g.status_state || "").toLowerCase() === "in");
+    setLivePolling(hasLive);
+
     // ---------- Future date UI mode ----------
     const isFuture = (data.mode === "future");
     document.documentElement.classList.toggle("future", isFuture);
@@ -883,15 +904,14 @@
       }
     }
 
-
     buildNetworkOptions();
     applySortAndRender();
 
-    // ✅ IMPORTANT: only after successful render
+    // IMPORTANT: only after successful render
     setLastUpdatedNow();
   }
 
-  // ✅ only calls at bottom
+  // only calls at bottom
   wireSorting();
   wireFilters();
   loadGames();
@@ -899,4 +919,3 @@
 
 </body>
 </html>
-

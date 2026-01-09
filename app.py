@@ -446,13 +446,24 @@ def parse_espn_games(data: dict) -> list[dict]:
         comp = competitions[0]
 
         home = away = None
+        home_score = away_score = None
+
         for c in comp.get("competitors", []):
-            team = c.get("team", {})
+            team = c.get("team", {}) or {}
             name = team.get("shortDisplayName") or team.get("displayName") or team.get("name")
+
+            score_raw = c.get("score")
+            try:
+                score = int(score_raw) if score_raw not in (None, "", " ") else None
+            except Exception:
+                score = None
+
             if c.get("homeAway") == "home":
                 home = name
+                home_score = score
             elif c.get("homeAway") == "away":
                 away = name
+                away_score = score
 
         start_utc = comp.get("startDate") or comp.get("date") or ev.get("date")
 
@@ -467,8 +478,12 @@ def parse_espn_games(data: dict) -> list[dict]:
         if not network:
             geo = comp.get("geoBroadcasts", [])
             if geo and isinstance(geo, list):
-                media = geo[0].get("media", {})
+                media = geo[0].get("media", {}) or {}
                 network = media.get("shortName") or ""
+
+        # ✅ NEW: status fields
+        status = comp.get("status", {}) or {}
+        stype = status.get("type", {}) or {}
 
         espn_games.append(
             {
@@ -478,10 +493,19 @@ def parse_espn_games(data: dict) -> list[dict]:
                 "start_utc": start_utc,
                 "network": network,
                 "key": matchup_key(away, home),
+
+                # ✅ live support
+                "status_state": stype.get("state"),         # "pre" | "in" | "post"
+                "status_detail": stype.get("shortDetail"),  # "Final" / "2nd Half - 12:34"
+                "clock": status.get("clock"),
+                "period": status.get("period"),
+                "away_score": away_score,
+                "home_score": home_score,
             }
         )
 
     return espn_games
+
 
 # ---------- Strict merge (raises if any missing) ----------
 
@@ -662,6 +686,13 @@ def merge_lenient(date_espn: str, date_kp: str) -> dict:
                 "home": e["home"],
                 "start_utc": e["start_utc"],
                 "network": e["network"],
+                "status_state": e.get("status_state"),
+                "status_detail": e.get("status_detail"),
+                "clock": e.get("clock"),
+                "period": e.get("period"),
+                "away_score": e.get("away_score"),
+                "home_score": e.get("home_score"),
+
 
                 "kp_found": kp is not None,
 
