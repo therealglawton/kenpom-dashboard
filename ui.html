@@ -258,74 +258,63 @@
       opacity: 0.6;
     }
 
-   /* Mobile layout */
-@media (max-width: 640px) {
+    /* Mobile layout */
+    @media (max-width: 640px) {
 
-/* Typography & spacing */
-.page-title { 
-  font-size: 22px; 
-}
+      /* Typography & spacing */
+      .page-title { font-size: 22px; }
 
-.container { 
-  padding: 14px 12px 18px; 
-}
+      .container { padding: 14px 12px 18px; }
 
-th, td { 
-  padding: 10px 10px; 
-  font-size: 13px; 
-}
+      th, td {
+        padding: 10px 10px;
+        font-size: 13px;
+      }
 
-/* Inputs should be full-width on mobile */
-input[type="text"],
-select {
-  width: 100%;
-  min-width: 0;
-}
+      /* Inputs should be full-width on mobile */
+      input[type="text"],
+      select {
+        width: 100%;
+        min-width: 0;
+      }
 
-/* Controls stack cleanly */
-.controls { 
-  gap: 8px; 
-}
+      /* Controls stack cleanly */
+      .controls { gap: 8px; }
 
-.controls .group { 
-  width: 100%; 
-}
+      .controls .group { width: 100%; }
 
-.spacer { 
-  display: none; 
-}
+      .spacer { display: none; }
 
-/* ---- TOP DATE ROW FIX ---- */
+      /* ---- TOP DATE ROW FIX ---- */
 
-/* Stack the top row instead of flex chaos */
-.row {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
-  margin-top: 12px;
-}
+      /* Stack the top row instead of flex chaos */
+      .row {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+        margin-top: 12px;
+      }
 
-/* Hide desktop-only arrows */
-#prevDayBtn,
-#nextDayBtn {
-  display: none;
-}
+      /* Hide desktop-only arrows */
+      #prevDayBtn,
+      #nextDayBtn {
+        display: none;
+      }
 
-/* Date picker: usable, native-feeling */
-#datePicker {
-  width: 100%;
-  height: 44px;
-  font-size: 16px;   /* prevents iOS zoom */
-  border-radius: 12px;
-}
+      /* Date picker: usable, native-feeling */
+      #datePicker {
+        width: 100%;
+        height: 44px;
+        font-size: 16px;   /* prevents iOS zoom */
+        border-radius: 12px;
+      }
 
-/* Reload button: intentional full-width */
-#reloadBtn {
-  width: 100%;
-  height: 44px;
-}
-}
-
+      /* Reload button: intentional full-width */
+      #reloadBtn {
+        width: 100%;
+        height: 44px;
+      }
+    }
   </style>
 </head>
 
@@ -336,8 +325,9 @@ select {
     </header>
 
     <div class="row">
-      <div class="muted">
-        Showing games for <strong><span id="dateLabel"></span></strong>
+      <!-- ✅ REPLACED: "Showing games for ..." with "Updated ... ago" -->
+      <div class="muted" aria-live="polite">
+        Updated <strong><span id="updatedAgo">—</span></strong> ago
       </div>
 
       <div class="spacer"></div>
@@ -424,6 +414,35 @@ select {
   let networkChoice = "";
   let hideEspnPlus = false;
   let kpOnly = true;
+
+  // ✅ Updated-ago ticker (frontend-only)
+  let lastUpdatedMs = null;
+  let updatedTimer = null;
+
+  function formatAgo(ms) {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    if (s < 60) return `${s}s`;
+
+    const m = Math.floor(s / 60);
+    const r = s % 60;
+    if (m < 60) return `${m}m ${r}s`;
+
+    const h = Math.floor(m / 60);
+    return `${h}h ${m % 60}m`;
+  }
+
+  function setLastUpdatedNow() {
+    lastUpdatedMs = Date.now();
+    const el = $("updatedAgo");
+    if (!el) return;
+
+    if (updatedTimer) clearInterval(updatedTimer);
+    el.textContent = "0s";
+
+    updatedTimer = setInterval(() => {
+      el.textContent = formatAgo(Date.now() - lastUpdatedMs);
+    }, 1000);
+  }
 
   // ---- Null-safe formatters ----
   function fmtNum(v, digits = 0) {
@@ -769,7 +788,7 @@ select {
     // Reload button
     $("reloadBtn").addEventListener("click", () => loadGames());
 
-    // ✅ Date picker + prev/next (MOVED INSIDE wireFilters)
+    // ✅ Date picker + prev/next
     $("datePicker").addEventListener("change", (e) => {
       const yyyymmdd = yyyymmddFromDateInput(e.target.value);
       loadGames(yyyymmdd);
@@ -806,8 +825,7 @@ select {
     const date_kp = isoFromYYYYMMDD(yyyymmdd);
     const date_espn = yyyymmdd;
 
-    // keep UI in sync
-    $("dateLabel").textContent = date_kp;
+    // keep UI in sync (date picker still drives the view)
     $("datePicker").value = date_kp;
 
     // Fetch ESPN urls
@@ -840,6 +858,9 @@ select {
     currentGames = data.games || [];
     buildNetworkOptions();
     applySortAndRender();
+
+    // ✅ IMPORTANT: only after successful render
+    setLastUpdatedNow();
   }
 
   // ✅ only calls at bottom
@@ -850,3 +871,4 @@ select {
 
 </body>
 </html>
+
