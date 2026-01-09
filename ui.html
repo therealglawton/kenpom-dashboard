@@ -257,6 +257,14 @@
     tr.kp-missing td.thrill {
       opacity: 0.6;
     }
+    /* ---------- Future date mode ---------- */
+    html.future th.kp,
+    html.future td.kp,
+    html.future th[data-sort="thrill"],
+    html.future td.thrill {
+      display: none;
+    }
+
 
     /* Mobile layout */
     @media (max-width: 640px) {
@@ -856,6 +864,26 @@
     }
 
     currentGames = data.games || [];
+    
+    // ---------- Future date UI mode ----------
+    const isFuture = (data.mode === "future");
+    document.documentElement.classList.toggle("future", isFuture);
+
+    // Force KenPom-only OFF in future mode
+    const kpOnlyEl = $("kpOnly");
+    if (isFuture) {
+      kpOnly = false;
+      if (kpOnlyEl) {
+        kpOnlyEl.checked = false;
+        kpOnlyEl.disabled = true;
+      }
+    } else {
+      if (kpOnlyEl) {
+        kpOnlyEl.disabled = false;
+      }
+    }
+
+
     buildNetworkOptions();
     applySortAndRender();
 

@@ -96,6 +96,77 @@ def kp_date(d: str) -> str:
         return f"{d[:4]}-{d[4:6]}-{d[6:8]}"
     return d
 
+def is_future_yyyymmdd_eastern(date_espn: str) -> bool:
+    """
+    Returns True if date_espn (YYYYMMDD) is after today's date in America/New_York.
+    """
+    try:
+        d = datetime.strptime(date_espn, "%Y%m%d").date()
+    except Exception:
+        return False
+    today = datetime.now(ZoneInfo("America/New_York")).date()
+    return d > today
+
+def espn_only_games(date_espn: str) -> dict:
+    """
+    Future-date mode: return ESPN schedule games only, with KenPom fields set to None.
+    Shape matches the merged payload so the frontend can render the table normally.
+    """
+    url = "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard"
+    params = {"dates": date_espn, "groups": 50, "limit": 500}
+
+    try:
+        r = requests.get(url, params=params, timeout=15)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"ESPN request failed: {type(e).__name__}: {e}")
+
+    if r.status_code != 200:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "source": "espn",
+                "requested_url": r.url,
+                "status_code": r.status_code,
+                "body_preview": (r.text or "")[:800],
+            },
+        )
+
+    # assumes you already have this helper elsewhere in app.py
+    espn_games = parse_espn_games(r.json())
+
+    games = []
+    for e in espn_games:
+        games.append(
+            {
+                "key": e.get("key"),
+                "event_id": e.get("event_id"),
+                "away": e.get("away"),
+                "home": e.get("home"),
+                "start_utc": e.get("start_utc"),
+                "network": e.get("network"),
+
+                # KP fields (explicitly empty)
+                "kp_found": False,
+                "kp_game_id": None,
+                "kp_home_pred": None,
+                "kp_away_pred": None,
+                "kp_home_wp": None,
+                "kp_thrill": None,
+                "kp_pred_tempo": None,
+                "kp_home_rank": None,
+                "kp_away_rank": None,
+            }
+        )
+
+    return {
+        "date_espn": date_espn,
+        "date_kp": kp_date(date_espn),
+        "count": len(games),
+        "games": games,
+        "mode": "future",
+        "warning": "Future date: KenPom data is not available until game day.",
+    }
+
 # ---------- Health / env ----------
 
 @app.get("/health")
@@ -621,6 +692,10 @@ def games(
 
 def build_games_for_date(date_espn: str, date_kp: str | None = None) -> dict:
     date_kp = date_kp or date_espn
+
+# ---------- Future date short-circuit ----------
+    if is_future_yyyymmdd_eastern(date_espn):
+        return espn_only_games(date_espn)
 
     # reuse existing strict merge logic
     try:
