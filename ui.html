@@ -6,6 +6,7 @@
   <title>College Basketball Dashboard</title>
   <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16.png">
+
   <style>
     :root{
       --bg: #ffffff;
@@ -31,10 +32,28 @@
       padding: 22px 18px 28px;
     }
 
-    h1 {
-      margin: 0 0 6px 0;
-      font-size: 34px;
-      letter-spacing: -0.02em;
+    /* Header */
+    .page-header{
+      text-align: center;
+      margin: 6px 0 14px;
+    }
+
+    .page-title{
+      margin: 0;
+      font-size: 44px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.08;
+    }
+
+    .page-header::after{
+      content: "";
+      display: block;
+      width: 140px;
+      height: 3px;
+      margin: 14px auto 0;
+      background: var(--border);
+      border-radius: 999px;
     }
 
     .muted {
@@ -241,7 +260,7 @@
 
     /* Small mobile tweaks */
     @media (max-width: 640px) {
-      h1 { font-size: 22px; }
+      .page-title { font-size: 22px; }
       .container { padding: 14px 12px 18px; }
       th, td { padding: 10px 10px; font-size: 13px; }
       button { width: 100%; justify-content: center; }
@@ -252,10 +271,12 @@
     }
   </style>
 </head>
+
 <body>
   <div class="container">
-    <h1>College Basketball Dashboard</h1>
-    <div class="muted">ESPN start time & network + KenPom FanMatch predictions</div>
+    <header class="page-header">
+      <h1 class="page-title">College Basketball Dashboard</h1>
+    </header>
 
     <div class="row">
       <div class="muted">
@@ -307,7 +328,7 @@
         <span>KenPom only</span>
       </span>
 
-      <button id="clearFilters" class="secondary">Clear</button>
+      <button id="clearFilters" class="secondary" type="button">Clear</button>
     </div>
 
     <div id="countLine" class="muted" style="margin-top:10px;"></div>
