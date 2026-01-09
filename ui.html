@@ -258,17 +258,74 @@
       opacity: 0.6;
     }
 
-    /* Small mobile tweaks */
-    @media (max-width: 640px) {
-      .page-title { font-size: 22px; }
-      .container { padding: 14px 12px 18px; }
-      th, td { padding: 10px 10px; font-size: 13px; }
-      button { width: 100%; justify-content: center; }
-      input[type="text"], select { width: 100%; min-width: 0; }
-      .controls { gap: 8px; }
-      .controls .group { width: 100%; }
-      .spacer { display: none; }
-    }
+   /* Mobile layout */
+@media (max-width: 640px) {
+
+/* Typography & spacing */
+.page-title { 
+  font-size: 22px; 
+}
+
+.container { 
+  padding: 14px 12px 18px; 
+}
+
+th, td { 
+  padding: 10px 10px; 
+  font-size: 13px; 
+}
+
+/* Inputs should be full-width on mobile */
+input[type="text"],
+select {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Controls stack cleanly */
+.controls { 
+  gap: 8px; 
+}
+
+.controls .group { 
+  width: 100%; 
+}
+
+.spacer { 
+  display: none; 
+}
+
+/* ---- TOP DATE ROW FIX ---- */
+
+/* Stack the top row instead of flex chaos */
+.row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+/* Hide desktop-only arrows */
+#prevDayBtn,
+#nextDayBtn {
+  display: none;
+}
+
+/* Date picker: usable, native-feeling */
+#datePicker {
+  width: 100%;
+  height: 44px;
+  font-size: 16px;   /* prevents iOS zoom */
+  border-radius: 12px;
+}
+
+/* Reload button: intentional full-width */
+#reloadBtn {
+  width: 100%;
+  height: 44px;
+}
+}
+
   </style>
 </head>
 
