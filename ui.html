@@ -252,12 +252,6 @@
     td.thrill.mid { color: #2563eb; }
     td.thrill.high { color: #dc2626; }
 
-    /* KP missing cue */
-    tr.kp-missing td.kp,
-    tr.kp-missing td.thrill {
-      opacity: 0.6;
-    }
-
     /* ---------- Future date mode ---------- */
     html.future th.kp,
     html.future td.kp,
@@ -364,11 +358,6 @@
         <span>Hide ESPN+</span>
       </span>
 
-      <span class="pill" title="Show only games with KenPom data available">
-        <input id="kpOnly" type="checkbox" checked />
-        <span>KenPom only</span>
-      </span>
-
       <button id="clearFilters" class="secondary" type="button">Clear</button>
     </div>
 
@@ -424,7 +413,6 @@
   let minThrill = 0;
   let networkChoice = "";
   let hideEspnPlus = false;
-  let kpOnly = true;
 
   // Updated-ago ticker (frontend-only)
   let lastUpdatedMs = null;
@@ -624,9 +612,6 @@
     for (const g of games) {
       const tr = document.createElement("tr");
 
-      // Mark rows missing KP data (lenient merge)
-      if (g.kp_found === false) tr.classList.add("kp-missing");
-
       const start = document.createElement("td");
       start.className = "nowrap";
       start.textContent = formatLocalTime(g.start_utc);
@@ -709,11 +694,6 @@
     const minT = Number(minThrill) || 0;
 
     return games.filter((g) => {
-      if (kpOnly) {
-        const t = Number(g.kp_thrill);
-        if (!Number.isFinite(t)) return false;
-      }
-
       if (hideEspnPlus && (g.network || "").toUpperCase().includes("ESPN+")) return false;
 
       if (networkChoice && (g.network || "") !== networkChoice) return false;
@@ -785,23 +765,16 @@
       applySortAndRender();
     });
 
-    $("kpOnly").addEventListener("change", (e) => {
-      kpOnly = !!e.target.checked;
-      applySortAndRender();
-    });
-
     $("clearFilters").addEventListener("click", () => {
       qText = "";
       minThrill = 0;
       networkChoice = "";
       hideEspnPlus = false;
-      kpOnly = true;
 
       $("q").value = "";
       $("minThrill").value = "0";
       $("networkFilter").value = "";
       $("hideEspnPlus").checked = false;
-      $("kpOnly").checked = true;
 
       applySortAndRender();
     });
@@ -889,20 +862,6 @@
     // ---------- Future date UI mode ----------
     const isFuture = (data.mode === "future");
     document.documentElement.classList.toggle("future", isFuture);
-
-    // Force KenPom-only OFF in future mode
-    const kpOnlyEl = $("kpOnly");
-    if (isFuture) {
-      kpOnly = false;
-      if (kpOnlyEl) {
-        kpOnlyEl.checked = false;
-        kpOnlyEl.disabled = true;
-      }
-    } else {
-      if (kpOnlyEl) {
-        kpOnlyEl.disabled = false;
-      }
-    }
 
     buildNetworkOptions();
     applySortAndRender();
