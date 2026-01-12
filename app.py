@@ -570,6 +570,15 @@ def debug_merge(date_espn: str, date_kp: str):
                 "home": e["home"],
                 "start_utc": e["start_utc"],
                 "network": e["network"],
+
+                # ✅ ADDED: live/final support for strict-match days
+                "status_state": e.get("status_state"),
+                "status_detail": e.get("status_detail"),
+                "clock": e.get("clock"),
+                "period": e.get("period"),
+                "away_score": e.get("away_score"),
+                "home_score": e.get("home_score"),
+
                 "kp_found": True,
                 "kp_game_id": kp.get("GameID"),
                 "kp_home_pred": kp.get("HomePred"),
