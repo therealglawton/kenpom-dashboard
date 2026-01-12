@@ -294,32 +294,38 @@
       height: 44px;
     }
 
-        /* ======================
-       MOBILE CARDS
-       ====================== */
+    /* ======================
+   MOBILE CARDS (2-up)
+   ====================== */
 
-       #cardBoard {
-        display: grid;              /* make sure board is visible on mobile */
-        grid-template-columns: 1fr; /* single column */
-        gap: 10px;
-        margin-top: 12px;
-      }
-  
-      .game-card {
-        padding: 12px 12px;
-        border-radius: 14px;
-        gap: 6px;
-      }
-  
-      .matchup { font-size: 15px; }
-      .status  { font-size: 11px; }
-      .main    { font-size: 18px; }
-      .sub     { display: none; }   /* biggest height saver */
-  
-      .footer {
-        font-size: 11px;
-        margin-top: 6px;
-      }
+#cardBoard {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)); /* TWO per row */
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.game-card {
+  padding: 10px 10px;
+  border-radius: 12px;
+  gap: 4px;
+}
+
+/* Compact typography */
+.matchup {
+  font-size: 14px;
+  line-height: 1.15;
+}
+
+.status  { font-size: 10px; }
+.main    { font-size: 16px; }
+.sub     { display: none; }   /* critical for height */
+
+.footer {
+  font-size: 10px;
+  margin-top: 4px;
+}
+
   
   }
 
