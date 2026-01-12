@@ -250,84 +250,109 @@
     display: none;
   }
 
-  /* Mobile layout */
-  @media (max-width: 640px) {
-    .page-title { font-size: 22px; }
-    .container { padding: 14px 12px 18px; }
+ /* Mobile layout */
+/* Mobile layout */
+@media (max-width: 640px) {
+  .page-title { font-size: 22px; }
+  .container { padding: 14px 12px 18px; }
 
-    th, td {
-      padding: 10px 10px;
-      font-size: 13px;
-    }
-
-    input[type="text"],
-    select {
-      width: 100%;
-      min-width: 0;
-    }
-
-    .controls { gap: 8px; }
-    .controls .group { width: 100%; }
-    .spacer { display: none; }
-
-    .row {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 10px;
-      margin-top: 12px;
-    }
-
-    #prevDayBtn,
-    #nextDayBtn {
-      display: none;
-    }
-
-    #datePicker {
-      width: 100%;
-      height: 44px;
-      font-size: 16px;
-      border-radius: 12px;
-    }
-
-    #reloadBtn {
-      width: 100%;
-      height: 44px;
-    }
-
-    /* ======================
-   MOBILE CARDS (2-up)
-   ====================== */
-
-#cardBoard {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr)); /* TWO per row */
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.game-card {
-  padding: 10px 10px;
-  border-radius: 12px;
-  gap: 4px;
-}
-
-/* Compact typography */
-.matchup {
-  font-size: 14px;
-  line-height: 1.15;
-}
-
-.status  { font-size: 10px; }
-.main    { font-size: 16px; }
-.sub     { display: none; }   /* critical for height */
-
-.footer {
-  font-size: 10px;
-  margin-top: 4px;
-}
-
-  
+  th, td {
+    padding: 10px 10px;
+    font-size: 13px;
   }
+
+  /* Keep text inputs full width if any exist (safe even if none) */
+  input[type="text"] {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .controls { gap: 8px; }
+  .controls .group { width: 100%; }
+  .spacer { display: none; }
+
+  /* IMPORTANT: do NOT force .row into a 1-col grid.
+     Keep it flexible so date + clear can stay inline. */
+  .row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 12px;
+  }
+
+  /* No arrows on mobile */
+  #prevDayBtn,
+  #nextDayBtn {
+    display: none;
+  }
+
+  /* Make inline controls compact and consistent */
+  #minThrill {
+    height: 32px;
+    font-size: 13px;
+    padding: 4px 8px;
+    border-radius: 10px;
+    min-width: 0; /* prevent weird overflow */
+  }
+
+  #clearFilters {
+    height: 32px;
+    font-size: 13px;
+    padding: 4px 8px;
+    border-radius: 10px;
+  }
+
+  /* Date picker MUST NOT be full width */
+  #datePicker {
+    width: auto;        /* key change */
+    height: 32px;
+    font-size: 13px;
+    padding: 4px 8px;
+    border-radius: 10px;
+  }
+
+  /* Optional: make Clear more low-key */
+  #clearFilters.secondary {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+    color: var(--muted);
+  }
+
+  /* ======================
+     MOBILE CARDS (2-up)
+     ====================== */
+
+  #cardBoard {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr)); /* TWO per row */
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .game-card {
+    padding: 10px 10px;
+    border-radius: 12px;
+    gap: 4px;
+  }
+
+  .matchup {
+    font-size: 14px;
+    line-height: 1.15;
+  }
+
+  .status  { font-size: 10px; }
+  .main    { font-size: 16px; }
+  .sub     { display: none; }
+
+  .footer {
+    font-size: 10px;
+    margin-top: 4px;
+  }
+}
+
+
 
   /* ======================
    CARD BOARD (CBB)

@@ -18,53 +18,44 @@
       <h1 class="page-title">College Basketball Dashboard</h1>
     </header>
 
-    <!-- Top row -->
-    <div class="row">
-      <div class="muted" aria-live="polite">
-        Updated <strong><span id="updatedAgo">—</span></strong> ago
-      </div>
+    <!-- Integrated status + controls (low key, single row) -->
+    <div class="row" style="align-items:center;">
+      <div class="muted" aria-live="polite" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
 
-      <div class="spacer"></div>
+        <span>
+          Updated <strong><span id="updatedAgo">—</span></strong> ago
+        </span>
 
-      <div class="group" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-        <button id="prevDayBtn" class="secondary" type="button">◀</button>
-        <input id="datePicker" type="date" />
-        <button id="nextDayBtn" class="secondary" type="button">▶</button>
-      </div>
-    </div>
+        <span class="muted" style="opacity:.7;">·</span>
 
-    <!-- Filters -->
-    <div class="controls" aria-label="Quick filters">
-      <div class="group">
-        <label for="q">Search</label>
-        <input id="q" type="text" placeholder="Team, matchup, network…" />
-      </div>
-
-      <div class="group">
-        <label for="minThrill">Min thrill</label>
-        <select id="minThrill">
+        <span class="muted" style="font-size:12px;">Thrill</span>
+        <select id="minThrill" style="height:32px; padding:6px 10px; border-radius:10px;">
           <option value="0">Any</option>
           <option value="40">40+</option>
           <option value="60">60+</option>
           <option value="70">70+</option>
         </select>
+
+        <button id="clearFilters" class="secondary" type="button"
+                style="height:32px; padding:6px 10px; border-radius:10px;">
+          Clear
+        </button>
+
+        <!-- Date controls (inline with Clear) -->
+        <button id="prevDayBtn" class="secondary" type="button"
+                style="height:32px; padding:6px 10px; border-radius:10px;">
+          ◀
+        </button>
+
+        <input id="datePicker" type="date"
+               style="height:32px; padding:6px 10px; border-radius:10px;" />
+
+        <button id="nextDayBtn" class="secondary" type="button"
+                style="height:32px; padding:6px 10px; border-radius:10px;">
+          ▶
+        </button>
+
       </div>
-
-      <div class="group">
-        <label for="networkFilter">Network</label>
-        <select id="networkFilter">
-          <option value="">All networks</option>
-        </select>
-      </div>
-
-      <div class="spacer"></div>
-
-      <span class="pill" title="Hide ESPN+ games">
-        <input id="hideEspnPlus" type="checkbox" />
-        <span>Hide ESPN+</span>
-      </span>
-
-      <button id="clearFilters" class="secondary" type="button">Clear</button>
     </div>
 
     <!-- Status / errors -->
