@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>College Basketball Dashboard</title>
+
   <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16.png">
 
@@ -12,10 +13,12 @@
 
 <body>
   <div class="container">
+
     <header class="page-header">
       <h1 class="page-title">College Basketball Dashboard</h1>
     </header>
 
+    <!-- Top row -->
     <div class="row">
       <div class="muted" aria-live="polite">
         Updated <strong><span id="updatedAgo">—</span></strong> ago
@@ -31,6 +34,7 @@
       </div>
     </div>
 
+    <!-- Filters -->
     <div class="controls" aria-label="Quick filters">
       <div class="group">
         <label for="q">Search</label>
@@ -64,11 +68,15 @@
       <button id="clearFilters" class="secondary" type="button">Clear</button>
     </div>
 
+    <!-- Status / errors -->
     <div id="countLine" class="muted" style="margin-top:10px;"></div>
-
     <div id="error" class="error"></div>
 
-    <div class="table-wrap">
+    <!-- CARD BOARD (JS will render here) -->
+    <div id="cardBoard" class="board"></div>
+
+    <!-- TABLE (kept for rollback, currently hidden) -->
+    <div class="table-wrap" style="display:none;">
       <table id="tbl" style="display:none;">
         <thead>
           <tr>
@@ -82,6 +90,7 @@
         <tbody id="tbody"></tbody>
       </table>
     </div>
+
   </div>
 
   <script src="/static/js/ui.js" defer></script>

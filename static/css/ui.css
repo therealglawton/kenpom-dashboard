@@ -294,3 +294,128 @@
       height: 44px;
     }
   }
+
+  /* ======================
+   CARD BOARD (CBB)
+   ====================== */
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  margin-top: 14px;
+}
+
+/* ======================
+   GAME CARD BASE
+   ====================== */
+
+.game-card {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ======================
+   CARD STATES
+   ====================== */
+
+.game-card.live {
+  border-left: 6px solid #dc2626;
+  background: linear-gradient(
+    to right,
+    rgba(220, 38, 38, 0.06),
+    #ffffff 30%
+  );
+}
+
+.game-card.upcoming {
+  border-left: 6px solid #2563eb;
+  opacity: 0.9;
+}
+
+.game-card.final {
+  border-left: 6px solid #6b7280;
+  opacity: 0.65;
+}
+
+/* ======================
+   CARD CONTENT
+   ====================== */
+
+.matchup {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.status {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.game-card.live .status {
+  color: #dc2626;
+  font-weight: 700;
+  letter-spacing: .1em;
+}
+
+.main {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.game-card.upcoming .main,
+.game-card.final .main {
+  font-weight: 700;
+}
+
+.game-card.live .main {
+  font-weight: 900;
+}
+
+.sub {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.game-card.upcoming .sub {
+  opacity: 0.85;
+}
+
+/* ======================
+   FOOTER
+   ====================== */
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.thrill {
+  font-weight: 600;
+}
+
+.game-card.live .thrill {
+  font-weight: 800;
+}
+
+.game-card.final .thrill {
+  opacity: 0.6;
+}
+
+.thrill.high { color: #dc2626; }
+.thrill.mid  { color: #2563eb; }
+.thrill.low  { color: #6b7280; }

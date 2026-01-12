@@ -361,6 +361,116 @@ function renderTable(games) {
   if (tbl) tbl.style.display = "table";
 }
 
+function renderCards(games) {
+  const board = $("cardBoard");
+  if (!board) return;
+
+  board.innerHTML = "";
+
+  for (const g of games) {
+    const card = document.createElement("div");
+    card.className = "game-card";
+
+    // --- state / status ---
+    let stateCls = "upcoming";
+    let statusText = formatLocalTime(g.start_utc);
+    let mainText = fmtPred(g);
+
+    if (g.status === "final") {
+      stateCls = "final";
+      statusText = "Final";
+      mainText = g.score || "Final";
+    } else if (g.status === "live") {
+      stateCls = "live";
+      statusText = g.clock || "Live";
+      mainText = g.score || "Live";
+    }
+
+    card.classList.add(stateCls);
+
+    // --- matchup (link if we have ESPN URL) ---
+    const matchup = document.createElement("div");
+    matchup.className = "matchup";
+
+    const eventId = String(g.event_id || "");
+    const href = state.urlsByEventId[eventId] || "";
+
+    if (href) {
+      const a = document.createElement("a");
+      a.href = href;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.textContent = `${g.away} @ ${g.home}`;
+      matchup.appendChild(a);
+    } else {
+      matchup.textContent = `${g.away} @ ${g.home}`;
+    }
+
+    // --- status ---
+    const status = document.createElement("div");
+    status.className = "status";
+    status.textContent = statusText;
+
+    // --- main line (score or prediction) ---
+    const main = document.createElement("div");
+    main.className = "main";
+    main.textContent = mainText;
+
+    // --- sub line ---
+    const sub = document.createElement("div");
+    sub.className = "sub";
+    if (stateCls === "upcoming") {
+      sub.textContent = "KenPom prediction";
+    } else if (stateCls === "live") {
+      sub.textContent = "Live game";
+    } else {
+      sub.textContent = "";
+    }
+
+    // --- footer: thrill + network ---
+    const footer = document.createElement("div");
+    footer.className = "footer";
+
+    const thrill = document.createElement("span");
+    const t = Number(g.kp_thrill);
+    let thrillCls = "thrill";
+
+    if (Number.isFinite(t)) {
+      if (t >= 65) thrillCls += " high";
+      else if (t >= 40) thrillCls += " mid";
+      else thrillCls += " low";
+      thrill.textContent = `Thrill ${t.toFixed(1)}`;
+    } else {
+      thrill.textContent = "Thrill —";
+      thrillCls += " low";
+    }
+
+    thrill.className = thrillCls;
+
+    const network = document.createElement("span");
+    network.textContent = g.network || "";
+
+    footer.appendChild(thrill);
+    footer.appendChild(network);
+
+    // assemble
+    card.appendChild(matchup);
+    card.appendChild(status);
+    card.appendChild(main);
+    card.appendChild(sub);
+    card.appendChild(footer);
+
+    board.appendChild(card);
+  }
+
+  // Make sure board is visible
+  board.style.display = "grid";
+
+  // Keep table hidden (for safety; you already hid wrapper in HTML)
+  const tbl = $("tbl");
+  if (tbl) tbl.style.display = "none";
+}
+
 function buildNetworkOptions() {
   const sel = $("networkFilter");
   if (!sel) return;
@@ -419,7 +529,7 @@ function applySortAndRender() {
   setHeaderLabels();
   const filtered = applyFilters(state.games);
   updateCountLine(filtered.length, state.games.length);
-  renderTable(sortGames(filtered));
+  renderCards(sortGames(filtered));
 }
 
 // =====================================================
