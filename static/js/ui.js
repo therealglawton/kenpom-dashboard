@@ -1,6 +1,7 @@
 // =====================================================
 // College Basketball Dashboard UI (drop-in replacement)
 // Adds: Hi/Mid + per-conference filter that only shows conferences with games that day
+// Adds (this change): Future-day tiles render compact (no KP/thrill/score content)
 // =====================================================
 
 // ---------------------
@@ -23,7 +24,7 @@ const state = {
     networkChoice: "",
     hideEspnPlus: false,
 
-    // 🆕 Conference filter:
+    // Conference filter:
     // "" = all
     // "hi" = high major
     // "mid" = mid major
@@ -42,25 +43,9 @@ const state = {
 // =====================================================
 // Conference tiers (Hi-major / Mid-major)
 // =====================================================
-// IMPORTANT: backend now returns g.away_conf / g.home_conf as objects: {id, name, short}
+// IMPORTANT: backend returns g.away_conf / g.home_conf as objects: {id, name, short}
 
-const HI_MAJOR_CONF_IDS = new Set([
-  // Update IDs if your conf_map.json uses different ones:
-  // Example assumption based on your earlier map snippet:
-  // 2=ACC, 4=Big East, 8=Big Ten, 12=Big 12, 23=SEC  (placeholder; verify in your conf_map.json)
-  //
-  // ✅ EASIEST: you can log available conference ids from today and confirm once.
-  //
-  // For now, we key off SHORT NAME instead (more robust given your data includes short/name).
-]);
-
-const HI_MAJOR_SHORTS = new Set([
-  "ACC",
-  "Big 12",
-  "Big East",
-  "Big Ten",
-  "SEC",
-]);
+const HI_MAJOR_SHORTS = new Set(["ACC", "Big 12", "Big East", "Big Ten", "SEC"]);
 
 function confShort(g, side) {
   const c = side === "home" ? g.home_conf : g.away_conf;
@@ -242,6 +227,10 @@ function formatLocalTime(utcIso) {
   return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(d);
 }
 
+function isFutureMode() {
+  return document.documentElement.classList.contains("future");
+}
+
 // =====================================================
 // Prediction display logic
 // =====================================================
@@ -277,7 +266,7 @@ function fmtPred(g) {
 }
 
 // =====================================================
-// 🆕 Live-first sorting helpers
+// Live-first sorting helpers
 // =====================================================
 function isLiveGame(g) {
   return String(g.status_state || "").toLowerCase() === "in" || g.status === "live";
@@ -475,12 +464,14 @@ function renderCards(games) {
   const board = $("cardBoard");
   if (!board) return;
 
+  const futureMode = isFutureMode();
   board.innerHTML = "";
 
   for (const g of games) {
     const card = document.createElement("div");
     card.className = "game-card";
 
+    // Default game state classes (used by your existing CSS)
     let stateCls = "upcoming";
     let statusText = formatLocalTime(g.start_utc);
     let mainText = fmtPred(g);
@@ -505,6 +496,7 @@ function renderCards(games) {
 
     card.classList.add(stateCls);
 
+    // Matchup (link if available)
     const matchup = document.createElement("div");
     matchup.className = "matchup";
 
@@ -522,6 +514,37 @@ function renderCards(games) {
       matchup.textContent = `${g.away} @ ${g.home}`;
     }
 
+    // FUTURE MODE: schedule tiles only (no KP/thrill/score text)
+    if (futureMode) {
+      // Optional "Upcoming" badge (matches your accent-style mock)
+      const badge = document.createElement("div");
+      badge.className = "badge";
+      badge.innerHTML = '<span class="dot"></span>Upcoming';
+
+      // Meta row: time + network
+      const meta = document.createElement("div");
+      meta.className = "meta-row";
+
+      const time = document.createElement("span");
+      time.className = "time";
+      time.textContent = formatLocalTime(g.start_utc);
+
+      const network = document.createElement("span");
+      network.className = "network";
+      network.textContent = g.network || "";
+
+      meta.appendChild(time);
+      meta.appendChild(network);
+
+      card.appendChild(badge);
+      card.appendChild(matchup);
+      card.appendChild(meta);
+
+      board.appendChild(card);
+      continue;
+    }
+
+    // NORMAL MODE: your existing content
     const status = document.createElement("div");
     status.className = "status";
     status.textContent = statusText;
@@ -602,7 +625,7 @@ function buildNetworkOptions() {
 }
 
 // =====================================================
-// 🆕 Conference dropdown (Hi/Mid + conferences present that day)
+// Conference dropdown (Hi/Mid + conferences present that day)
 // Requires: <select id="confFilter"></select> in HTML (safe no-op if missing)
 // =====================================================
 function buildConferenceOptions() {
@@ -644,7 +667,6 @@ function buildConferenceOptions() {
 
   // Conferences that have games today
   if (confs.length) {
-    // visual separator (still a normal option; disabled)
     const sep = new Option("──────────", "__sep__");
     sep.disabled = true;
     sel.appendChild(sep);
@@ -681,7 +703,7 @@ function applyFilters(games) {
       if (!Number.isFinite(t) || t < minT) return false;
     }
 
-    // 🆕 Conf filter
+    // Conf filter
     if (confChoice) {
       if (confChoice === "hi") {
         if (!gameIsHighMajor(g)) return false;
@@ -694,6 +716,8 @@ function applyFilters(games) {
     }
 
     if (q) {
+      // Note: fmtPred(g) returns "—" for future-mode games (no KP). That's fine;
+      // the matchup/network still make search useful.
       const hay = `${g.away || ""} ${g.home || ""} ${g.network || ""} ${fmtPred(g)}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
@@ -760,10 +784,8 @@ function wireFilters() {
     applySortAndRender();
   });
 
-  // 🆕 Conference filter (only if you add <select id="confFilter">)
   $("confFilter")?.addEventListener("change", (e) => {
     const v = e.target.value || "";
-    // ignore disabled separator value
     if (v === "__sep__") return;
     state.filters.confChoice = v;
     applySortAndRender();
@@ -861,7 +883,7 @@ async function loadGames(yyyymmdd = null, silent = false) {
 
   state.games = data.games || [];
 
-  // Future date mode (hide KP + thrill columns)
+  // Future date mode (drives future-day rendering + CSS)
   const isFuture = data.mode === "future";
   document.documentElement.classList.toggle("future", isFuture);
 
@@ -870,7 +892,7 @@ async function loadGames(yyyymmdd = null, silent = false) {
   setPollingMode(!isFuture && isToday ? (hasLive ? "live" : "idle") : "off");
 
   buildNetworkOptions();
-  buildConferenceOptions(); // ✅ only shows hi/mid + conferences with games today
+  buildConferenceOptions();
   applySortAndRender();
   setLastUpdatedNow();
 }

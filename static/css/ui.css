@@ -1,373 +1,248 @@
 :root{
-    --bg: #ffffff;
-    --text: #111827;
-    --muted: #6b7280;
-    --border: #e5e7eb;
-    --row: #fafafa;
-    --rowHover: #f1f5f9;
-    --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
-  }
-
-  body {
-    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-  }
-
-  /* Layout */
-  .container{
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 22px 18px 28px;
-  }
-
-  /* Header */
-  .page-header{
-    text-align: center;
-    margin: 6px 0 14px;
-  }
-
-  .page-title{
-    margin: 0;
-    font-size: 44px;
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    line-height: 1.08;
-  }
-
-  .page-header::after{
-    content: "";
-    display: block;
-    width: 140px;
-    height: 3px;
-    margin: 14px auto 0;
-    background: var(--border);
-    border-radius: 999px;
-  }
-
-  .muted {
-    color: var(--muted);
-    font-size: 13px;
-  }
-
-  .row {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    align-items: center;
-    margin-top: 14px;
-  }
-
-  input[type="date"]{
-    padding: 9px 10px;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    font-size: 14px;
-    background: #fff;
-    color: var(--text);
-    outline: none;
-  }
-
-  /* Controls */
-  .controls {
-    margin-top: 14px;
-    padding: 12px;
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    box-shadow: var(--shadow);
-    background: white;
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    align-items: center;
-  }
-
-  .controls .group {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-
-  .controls label {
-    font-size: 12px;
-    color: #4b5563;
-    text-transform: uppercase;
-    letter-spacing: .06em;
-  }
-
-  input[type="text"], select {
-    padding: 9px 10px;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    font-size: 14px;
-    background: #fff;
-    color: var(--text);
-    outline: none;
-  }
-  input[type="text"] { min-width: 240px; }
-  select { min-width: 180px; }
-
-  .pill {
-    display: inline-flex;
-    gap: 8px;
-    align-items: center;
-    padding: 8px 10px;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: #fff;
-    font-size: 13px;
-    color: #374151;
-    user-select: none;
-  }
-  .pill input { transform: translateY(1px); }
-
-  .spacer { flex: 1; }
-
-  /* Button */
-  button {
-    padding: 9px 12px;
-    font-size: 14px;
-    cursor: pointer;
-    border: 1px solid var(--border);
-    background: #111827;
-    color: white;
-    border-radius: 10px;
-    box-shadow: 0 1px 2px rgba(0,0,0,.06);
-  }
-  button:hover { filter: brightness(1.05); }
-  button:active { transform: translateY(1px); }
-
-  .secondary {
-    background: #fff;
-    color: #111827;
-  }
-
-  .error {
-    color: #b00020;
-    white-space: pre-wrap;
-    margin-top: 12px;
-    padding: 10px 12px;
-    border: 1px solid #fecaca;
-    background: #fff1f2;
-    border-radius: 10px;
-    display: none;
-  }
-
-  /* Table wrapper */
-  .table-wrap {
-    width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    margin-top: 14px;
-    box-shadow: var(--shadow);
-    max-height: 70vh;
-    overflow: auto;
-    background: white;
-  }
-
-  table {
-    border-collapse: separate;
-    border-spacing: 0;
-    width: 100%;
-    min-width: 900px; /* keeps columns readable */
-  }
-
-  th, td {
-    border-bottom: 1px solid var(--border);
-    padding: 10px 12px;
-    text-align: left;
-    font-size: 14px;
-    vertical-align: middle;
-  }
-
-  thead th {
-    position: sticky;
-    top: 0;
-    background: white;
-    z-index: 2;
-    font-size: 12px;
-    color: #4b5563;
-    text-transform: uppercase;
-    letter-spacing: .06em;
-    box-shadow: 0 1px 0 var(--border);
-  }
-
-  tbody tr:nth-child(even) { background: var(--row); }
-  tbody tr:hover { background: var(--rowHover); }
-
-  .nowrap { white-space: nowrap; }
-
-  /* Column styling */
-  td.matchup {
-    font-weight: 600;
-    letter-spacing: -0.01em;
-  }
-
-  td.matchup a{
-    color: inherit;
-    text-decoration: none;
-    font-weight: 600;
-  }
-  td.matchup a:hover{
-    text-decoration: underline;
-  }
-
-  td.network {
-    color: var(--muted);
-    font-size: 13px;
-  }
-
-  td.kp {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-  }
-
-  td.thrill {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-    width: 90px;
-  }
-
-  /* Visual divider before KP columns */
-  th.kp, td.kp {
-    border-left: 1px solid var(--border);
-  }
-
-  /* Thrill cue */
-  td.thrill.low { color: #6b7280; }
-  td.thrill.mid { color: #2563eb; }
-  td.thrill.high { color: #dc2626; }
-
-  /* ---------- Future date mode ---------- */
-  html.future th.kp,
-  html.future td.kp,
-  html.future th[data-sort="thrill"],
-  html.future td.thrill {
-    display: none;
-  }
-
- /* Mobile layout */
-/* Mobile layout */
-@media (max-width: 640px) {
-  .page-title { font-size: 22px; }
-  .container { padding: 14px 12px 18px; }
-
-  th, td {
-    padding: 10px 10px;
-    font-size: 13px;
-  }
-
-  /* Keep text inputs full width if any exist (safe even if none) */
-  input[type="text"] {
-    width: 100%;
-    min-width: 0;
-  }
-
-  .controls { gap: 8px; }
-  .controls .group { width: 100%; }
-  .spacer { display: none; }
-
-  /* IMPORTANT: do NOT force .row into a 1-col grid.
-     Keep it flexible so date + clear can stay inline. */
-  .row {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    align-items: center;
-    margin-top: 12px;
-  }
-
-  /* No arrows on mobile */
-  #prevDayBtn,
-  #nextDayBtn {
-    display: none;
-  }
-
-  /* Make inline controls compact and consistent */
-  #minThrill {
-    height: 32px;
-    font-size: 13px;
-    padding: 4px 8px;
-    border-radius: 10px;
-    min-width: 0; /* prevent weird overflow */
-  }
-
-  #clearFilters {
-    height: 32px;
-    font-size: 13px;
-    padding: 4px 8px;
-    border-radius: 10px;
-  }
-
-  /* Date picker MUST NOT be full width */
-  #datePicker {
-    width: auto;        /* key change */
-    height: 32px;
-    font-size: 13px;
-    padding: 4px 8px;
-    border-radius: 10px;
-  }
-
-  /* Optional: make Clear more low-key */
-  #clearFilters.secondary {
-    background: transparent;
-    border-color: transparent;
-    box-shadow: none;
-    color: var(--muted);
-  }
-
-  /* ======================
-     MOBILE CARDS (2-up)
-     ====================== */
-
-  #cardBoard {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr)); /* TWO per row */
-    gap: 8px;
-    margin-top: 12px;
-  }
-
-  .game-card {
-    padding: 10px 10px;
-    border-radius: 12px;
-    gap: 4px;
-  }
-
-  .matchup {
-    font-size: 14px;
-    line-height: 1.15;
-  }
-
-  .status  { font-size: 10px; }
-  .main    { font-size: 16px; }
-  .sub     { display: none; }
-
-  .footer {
-    font-size: 10px;
-    margin-top: 4px;
-  }
+  --bg: #ffffff;
+  --text: #111827;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --row: #fafafa;
+  --rowHover: #f1f5f9;
+  --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
 }
 
+/* =====================================================
+   BASE
+   ===================================================== */
 
+body {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
 
-  /* ======================
-   CARD BOARD (CBB)
-   ====================== */
+/* =====================================================
+   LAYOUT
+   ===================================================== */
 
-.board {
+.container{
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 22px 18px 28px;
+}
+
+/* =====================================================
+   HEADER
+   ===================================================== */
+
+.page-header{
+  text-align: center;
+  margin: 6px 0 14px;
+}
+
+.page-title{
+  margin: 0;
+  font-size: 44px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+}
+
+.page-header::after{
+  content: "";
+  display: block;
+  width: 140px;
+  height: 3px;
+  margin: 14px auto 0;
+  background: var(--border);
+  border-radius: 999px;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* =====================================================
+   ROWS / CONTROLS
+   ===================================================== */
+
+.row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 14px;
+}
+
+.controls {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  background: white;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.controls .group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.controls label {
+  font-size: 12px;
+  color: #4b5563;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+input[type="text"],
+input[type="date"],
+select {
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 14px;
+  background: #fff;
+  color: var(--text);
+  outline: none;
+}
+
+input[type="text"] { min-width: 240px; }
+select { min-width: 180px; }
+
+.pill {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 13px;
+  color: #374151;
+}
+
+.spacer { flex: 1; }
+
+/* =====================================================
+   BUTTONS
+   ===================================================== */
+
+button {
+  padding: 9px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: #111827;
+  color: white;
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.06);
+}
+
+button.secondary {
+  background: #fff;
+  color: #111827;
+}
+
+button:hover { filter: brightness(1.05); }
+button:active { transform: translateY(1px); }
+
+/* =====================================================
+   ERROR
+   ===================================================== */
+
+.error {
+  color: #b00020;
+  white-space: pre-wrap;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  border-radius: 10px;
+  display: none;
+}
+
+/* =====================================================
+   TABLE
+   ===================================================== */
+
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  margin-top: 14px;
+  box-shadow: var(--shadow);
+  max-height: 70vh;
+  background: white;
+}
+
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  min-width: 900px;
+}
+
+th, td {
+  border-bottom: 1px solid var(--border);
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+thead th {
+  position: sticky;
+  top: 0;
+  background: white;
+  z-index: 2;
+  font-size: 12px;
+  color: #4b5563;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+tbody tr:nth-child(even) { background: var(--row); }
+tbody tr:hover { background: var(--rowHover); }
+
+.nowrap { white-space: nowrap; }
+
+td.matchup { font-weight: 600; }
+td.matchup a { color: inherit; text-decoration: none; }
+td.matchup a:hover { text-decoration: underline; }
+
+td.network { color: var(--muted); font-size: 13px; }
+td.kp, td.thrill { text-align: right; font-variant-numeric: tabular-nums; }
+
+td.thrill.low { color: #6b7280; }
+td.thrill.mid { color: #2563eb; }
+td.thrill.high { color: #dc2626; }
+
+html.future th.kp,
+html.future td.kp,
+html.future th[data-sort="thrill"],
+html.future td.thrill {
+  display: none;
+}
+
+/* =====================================================
+   CARD GRID
+   ===================================================== */
+
+#cardBoard {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 16px;
   margin-top: 14px;
 }
 
-/* ======================
+/* =====================================================
    GAME CARD BASE
-   ====================== */
+   ===================================================== */
 
 .game-card {
   background: #ffffff;
@@ -380,22 +255,17 @@
   gap: 10px;
 }
 
-/* ======================
+/* =====================================================
    CARD STATES
-   ====================== */
+   ===================================================== */
 
 .game-card.live {
   border-left: 6px solid #dc2626;
-  background: linear-gradient(
-    to right,
-    rgba(220, 38, 38, 0.06),
-    #ffffff 30%
-  );
+  background: linear-gradient(to right, rgba(220,38,38,.06), #fff 30%);
 }
 
 .game-card.upcoming {
   border-left: 6px solid #2563eb;
-  opacity: 0.9;
 }
 
 .game-card.final {
@@ -403,42 +273,24 @@
   opacity: 0.65;
 }
 
-/* ======================
-   CARD CONTENT
-   ====================== */
+/* =====================================================
+   CARD CONTENT (NORMAL DAYS)
+   ===================================================== */
 
 .matchup {
   font-size: 16px;
   font-weight: 700;
-  letter-spacing: -0.01em;
 }
 
 .status {
   font-size: 12px;
   color: var(--muted);
   text-transform: uppercase;
-  letter-spacing: .08em;
-}
-
-.game-card.live .status {
-  color: #dc2626;
-  font-weight: 700;
-  letter-spacing: .1em;
 }
 
 .main {
   font-size: 22px;
   font-weight: 800;
-  letter-spacing: -0.02em;
-}
-
-.game-card.upcoming .main,
-.game-card.final .main {
-  font-weight: 700;
-}
-
-.game-card.live .main {
-  font-weight: 900;
 }
 
 .sub {
@@ -446,35 +298,88 @@
   color: var(--muted);
 }
 
-.game-card.upcoming .sub {
-  opacity: 0.85;
-}
-
-/* ======================
-   FOOTER
-   ====================== */
-
 .footer {
   display: flex;
   justify-content: space-between;
-  align-items: center;
   margin-top: auto;
   font-size: 12px;
   color: var(--muted);
 }
 
-.thrill {
-  font-weight: 600;
-}
-
-.game-card.live .thrill {
-  font-weight: 800;
-}
-
-.game-card.final .thrill {
-  opacity: 0.6;
-}
-
 .thrill.high { color: #dc2626; }
 .thrill.mid  { color: #2563eb; }
 .thrill.low  { color: #6b7280; }
+
+/* =====================================================
+   FUTURE DAY: SQUARE TILES
+   ===================================================== */
+
+html.future #cardBoard {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+html.future .game-card.upcoming {
+  aspect-ratio: 1 / 1;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+html.future .badge {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #2563eb;
+  display: inline-flex;
+  gap: 6px;
+}
+
+html.future .badge .dot {
+  width: 6px;
+  height: 6px;
+  background: #2563eb;
+  border-radius: 999px;
+}
+
+html.future .meta-row {
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+html.future .meta-row .network {
+  font-weight: 800;
+}
+
+/* =====================================================
+   MOBILE
+   ===================================================== */
+
+@media (max-width: 640px) {
+  .page-title { font-size: 22px; }
+  .container { padding: 14px 12px 18px; }
+
+  #prevDayBtn,
+  #nextDayBtn {
+    display: none;
+  }
+
+  #cardBoard {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .game-card {
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  html.future .game-card.upcoming {
+    padding: 10px;
+  }
+}
