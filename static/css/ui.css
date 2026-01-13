@@ -359,7 +359,7 @@ html.future .meta-row .network {
 /* Stable updated timer (prevents layout shift) */
 .updatedAgo{
   display: inline-block;
-  width: 3ch;                /* "60s" max */
+  width: 6ch;                /* "60s" max */
   text-align: right;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
