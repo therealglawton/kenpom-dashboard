@@ -51,3 +51,12 @@ import os
 if os.getenv("DEBUG", "0") == "1":
     from routers.debug import router as debug_router
     app.include_router(debug_router)
+
+from services.mlb_espn import get_mlb_games
+
+@app.get("/mlb/games")
+def mlb_games(date: str):
+    return {
+        "date": date,
+        "games": get_mlb_games(date)
+    }
