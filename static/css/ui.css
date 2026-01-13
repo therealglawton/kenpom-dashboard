@@ -61,6 +61,59 @@ body {
   font-size: 13px;
 }
 
+/* Stable updated timer (prevents layout shift) */
+.updatedAgo{
+  display: inline-block;
+  width: 6ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  white-space: nowrap;
+}
+
+/* =====================================================
+   TABS (real tabs, not buttons)
+   ===================================================== */
+
+.tabs{
+  display:flex;
+  justify-content:center;
+  gap:10px;
+  margin: 8px 0 14px;
+  flex-wrap: wrap;
+}
+
+.tab{
+  /* override global button styling */
+  appearance: none;
+  -webkit-appearance: none;
+
+  border: 1px solid var(--border);
+  background: var(--row);
+  padding: 10px 14px;
+  border-radius: 14px;
+  cursor: pointer;
+  font-weight: 800;
+  color: var(--text);
+
+  box-shadow: none;
+  transform: none;
+  filter: none;
+}
+
+.tab:hover{
+  background: var(--rowHover);
+}
+
+.tab:active{
+  transform: none;
+}
+
+.tab.active{
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
 /* =====================================================
    ROWS / CONTROLS
    ===================================================== */
@@ -151,6 +204,18 @@ button.secondary {
 
 button:hover { filter: brightness(1.05); }
 button:active { transform: translateY(1px); }
+
+/* =====================================================
+   MLB MODE: hide CBB-only controls (WORKS with your new HTML wrappers)
+   ===================================================== */
+/* JS should set:
+   document.documentElement.classList.toggle("mlb", sport === "mlb");
+*/
+html.mlb #thrillGroup,
+html.mlb #confGroup,
+html.mlb #clearFilters{
+  display: none !important;
+}
 
 /* =====================================================
    ERROR
@@ -356,17 +421,10 @@ html.future .meta-row .network {
   font-weight: 800;
 }
 
-/* Stable updated timer (prevents layout shift) */
-.updatedAgo{
-  display: inline-block;
-  width: 6ch;                /* "60s" max */
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum" 1;
-  white-space: nowrap;
-}
+/* =====================================================
+   MOBILE LAYOUT
+   ===================================================== */
 
-/* Mobile layout */
 @media (max-width: 640px) {
   .page-title { font-size: 22px; }
   .container { padding: 14px 12px 18px; }
@@ -376,7 +434,9 @@ html.future .meta-row .network {
     font-size: 13px;
   }
 
-  /* Keep text inputs full width if any exist (safe even if none) */
+  .tabs { margin: 6px 0 10px; }
+  .tab { padding: 8px 12px; border-radius: 12px; }
+
   input[type="text"] {
     width: 100%;
     min-width: 0;
@@ -386,7 +446,6 @@ html.future .meta-row .network {
   .controls .group { width: 100%; }
   .spacer { display: none; }
 
-  /* Keep filter bar flexible */
   .row {
     display: flex;
     gap: 10px;
@@ -395,13 +454,11 @@ html.future .meta-row .network {
     margin-top: 12px;
   }
 
-  /* No arrows on mobile */
   #prevDayBtn,
   #nextDayBtn {
     display: none;
   }
 
-  /* Compact inline controls */
   #minThrill,
   #confFilter {
     height: 32px;
@@ -419,7 +476,6 @@ html.future .meta-row .network {
     white-space: nowrap;
   }
 
-  /* Date picker MUST NOT be full width */
   #datePicker {
     width: auto;
     height: 32px;
@@ -428,7 +484,6 @@ html.future .meta-row .network {
     border-radius: 10px;
   }
 
-  /* Optional: make Clear more low-key */
   #clearFilters.secondary {
     background: transparent;
     border-color: transparent;
@@ -436,26 +491,19 @@ html.future .meta-row .network {
     color: var(--muted);
   }
 
-  /* ======================
-     MOBILE CARDS (3-up)
-     ====================== */
-
-  /* CHANGED: 3 per row instead of 2 */
   #cardBoard {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 6px;                 /* slightly tighter */
+    gap: 6px;
     margin-top: 12px;
   }
 
-  /* CHANGED: smaller cards */
   .game-card {
     padding: 8px;
     border-radius: 12px;
     gap: 4px;
   }
 
-  /* CHANGED: slightly smaller text */
   .matchup {
     font-size: 13px;
     line-height: 1.1;
@@ -464,7 +512,6 @@ html.future .meta-row .network {
   .status  { font-size: 10px; }
   .main    { font-size: 15px; }
 
-  /* keep these hidden like before */
   .sub     { display: none; }
 
   .footer {

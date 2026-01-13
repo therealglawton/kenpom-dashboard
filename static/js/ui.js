@@ -2,6 +2,7 @@
 // College Basketball Dashboard UI (drop-in replacement)
 // Adds: Hi/Mid + per-conference filter that only shows conferences with games that day
 // Adds (this change): Future-day tiles render compact (no KP/thrill/score content)
+// Adds (this change): Top tabs for CBB / MLB + MLB fetch + MLB card render
 // =====================================================
 
 // ---------------------
@@ -13,7 +14,9 @@ const $ = (id) => document.getElementById(id);
 // App state (single source of truth)
 // ---------------------
 const state = {
-  games: [],
+  sport: "cbb",         // "cbb" | "mlb"
+  games: [],            // CBB games
+  mlbGames: [],         // MLB games
   urlsByEventId: {},
 
   sort: { key: "time", dir: "asc" }, // default: time asc (thrill tiebreaker desc)
@@ -39,6 +42,45 @@ const state = {
     lastUpdatedMs: null,
   },
 };
+
+// =====================================================
+// Tabs (CBB / MLB)
+// =====================================================
+function setSport(sport) {
+  state.sport = sport;
+  document.documentElement.classList.toggle("mlb", sport === "mlb");
+
+  const tabCbb = $("tabCbb");
+  const tabMlb = $("tabMlb");
+  const isCbb = sport === "cbb";
+
+  if (tabCbb && tabMlb) {
+    tabCbb.classList.toggle("active", isCbb);
+    tabMlb.classList.toggle("active", !isCbb);
+    tabCbb.setAttribute("aria-selected", String(isCbb));
+    tabMlb.setAttribute("aria-selected", String(!isCbb));
+  }
+
+  // Disable CBB-only controls in MLB mode (prevents weird filtering/UI surprises)
+  const cbbOnlyIds = ["minThrill", "confFilter", "networkFilter", "hideEspnPlus", "clearFilters"];
+  cbbOnlyIds.forEach((id) => {
+    const el = $(id);
+    if (el) el.disabled = !isCbb;
+  });
+
+  // Search box: keep enabled for CBB, disable for MLB for now (simple + predictable)
+  if ($("q")) $("q").disabled = !isCbb;
+
+  // Stop any polling when switching sports (MLB polling can be added later)
+  setPollingMode("off");
+
+  loadGames(null, false);
+}
+
+function wireTabs() {
+  $("tabCbb")?.addEventListener("click", () => setSport("cbb"));
+  $("tabMlb")?.addEventListener("click", () => setSport("mlb"));
+}
 
 // =====================================================
 // Conference tiers (Hi-major / Mid-major)
@@ -599,6 +641,65 @@ function renderCards(games) {
   if (tbl) tbl.style.display = "none";
 }
 
+// MLB cards (reuses .game-card styling)
+function renderMlbCards(games) {
+  const board = $("cardBoard");
+  if (!board) return;
+
+  const sorted = [...(games || [])].sort((a, b) => String(a.startTime || "").localeCompare(String(b.startTime || "")));
+  board.innerHTML = "";
+
+  if (!sorted.length) {
+    board.innerHTML = `<div class="muted">No MLB games for this date.</div>`;
+    return;
+  }
+
+  for (const g of sorted) {
+    const card = document.createElement("div");
+    card.className = "game-card";
+
+    let cls = "upcoming";
+    if (g.state === "post") cls = "final";
+    else if (g.state === "in") cls = "live";
+    card.classList.add(cls);
+
+    const away = g.away?.abbr || g.away?.name || "—";
+    const home = g.home?.abbr || g.home?.name || "—";
+
+    const matchup = document.createElement("div");
+    matchup.className = "matchup";
+    matchup.textContent = `${away} @ ${home}`;
+
+    const status = document.createElement("div");
+    status.className = "status";
+
+    if (g.state === "post" && g.away?.score != null && g.home?.score != null) {
+      status.textContent = "Final";
+    } else {
+      status.textContent = formatLocalTime(g.startTime) || (g.status || "Scheduled");
+    }
+
+    const main = document.createElement("div");
+    main.className = "main";
+    if (g.state === "post" && g.away?.score != null && g.home?.score != null) {
+      main.textContent = `${away} ${g.away.score} – ${home} ${g.home.score}`;
+    } else {
+      main.textContent = g.status || "Scheduled";
+    }
+
+    card.appendChild(matchup);
+    card.appendChild(status);
+    card.appendChild(main);
+
+    board.appendChild(card);
+  }
+
+  board.style.display = "grid";
+
+  const tbl = $("tbl");
+  if (tbl) tbl.style.display = "none";
+}
+
 function buildNetworkOptions() {
   const sel = $("networkFilter");
   if (!sel) return;
@@ -716,8 +817,6 @@ function applyFilters(games) {
     }
 
     if (q) {
-      // Note: fmtPred(g) returns "—" for future-mode games (no KP). That's fine;
-      // the matchup/network still make search useful.
       const hay = `${g.away || ""} ${g.home || ""} ${g.network || ""} ${fmtPred(g)}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
@@ -845,6 +944,12 @@ async function fetchGames(date_espn, date_kp) {
   return { resp, data };
 }
 
+async function fetchMlbGames(date_yyyymmdd) {
+  const resp = await fetch(`/mlb/games?date=${date_yyyymmdd}`);
+  const data = await resp.json();
+  return { resp, data };
+}
+
 // =====================================================
 // Main load function (supports silent refresh)
 // =====================================================
@@ -866,6 +971,40 @@ async function loadGames(yyyymmdd = null, silent = false) {
 
   if ($("datePicker")) $("datePicker").value = date_kp;
 
+  // ---------------------------
+  // MLB
+  // ---------------------------
+  if (state.sport === "mlb") {
+    state.urlsByEventId = {};
+
+    let resp, data;
+    try {
+      ({ resp, data } = await fetchMlbGames(date_espn));
+    } catch (e) {
+      showError(`Failed to load MLB games\n${e}`);
+      return;
+    }
+
+    if (!resp.ok) {
+      showError(JSON.stringify(data, null, 2));
+      return;
+    }
+
+    state.mlbGames = data.games || [];
+
+    // MLB doesn't use your KP-based future mode styling
+    document.documentElement.classList.remove("future");
+    setPollingMode("off");
+
+    updateCountLine(state.mlbGames.length, state.mlbGames.length);
+    renderMlbCards(state.mlbGames);
+    setLastUpdatedNow();
+    return;
+  }
+
+  // ---------------------------
+  // CBB (existing behavior)
+  // ---------------------------
   state.urlsByEventId = await fetchEspnUrls(date_espn);
 
   let resp, data;
@@ -900,6 +1039,7 @@ async function loadGames(yyyymmdd = null, silent = false) {
 // =====================================================
 // Boot
 // =====================================================
+wireTabs();
 wireSorting();
 wireFilters();
 loadGames();

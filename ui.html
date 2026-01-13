@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>College Basketball Dashboard</title>
+  <title>Sports Slate</title>
 
   <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16.png">
@@ -15,8 +15,14 @@
   <div class="container">
 
     <header class="page-header">
-      <h1 class="page-title">College Basketball Dashboard</h1>
+      <h1 class="page-title">Today’s Sports Slate</h1>
     </header>
+
+    <!-- Sport tabs -->
+    <div class="tabs" role="tablist" aria-label="Sport tabs">
+      <button id="tabCbb" class="tab active" type="button" role="tab" aria-selected="true">CBB</button>
+      <button id="tabMlb" class="tab" type="button" role="tab" aria-selected="false">MLB</button>
+    </div>
 
     <!-- Integrated status + controls (low key, single row) -->
     <div class="row" style="align-items:center;">
@@ -28,18 +34,23 @@
 
         <span class="muted" style="opacity:.7;">·</span>
 
-        <span class="muted" style="font-size:12px;">Thrill</span>
-        <select id="minThrill" style="height:32px; padding:6px 10px; border-radius:10px;">
-          <option value="0">Any</option>
-          <option value="40">40+</option>
-          <option value="60">60+</option>
-          <option value="70">70+</option>
-        </select>
+        <!-- CBB-only controls (wrapped so MLB mode can hide labels AND selects) -->
+        <span id="thrillGroup" style="display:inline-flex; gap:10px; align-items:center;">
+          <span class="muted" style="font-size:12px;">Thrill</span>
+          <select id="minThrill" style="height:32px; padding:6px 10px; border-radius:10px;">
+            <option value="0">Any</option>
+            <option value="40">40+</option>
+            <option value="60">60+</option>
+            <option value="70">70+</option>
+          </select>
+        </span>
 
-        <span class="muted" style="font-size:12px;">Filter</span>
-        <select id="confFilter" style="height:32px; padding:6px 10px; border-radius:10px;">
-          <option value="">All games</option>
-        </select>
+        <span id="confGroup" style="display:inline-flex; gap:10px; align-items:center;">
+          <span class="muted" style="font-size:12px;">Filter</span>
+          <select id="confFilter" style="height:32px; padding:6px 10px; border-radius:10px;">
+            <option value="">All games</option>
+          </select>
+        </span>
 
         <button id="clearFilters" class="secondary" type="button"
                 style="height:32px; padding:6px 10px; border-radius:10px;">
