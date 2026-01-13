@@ -366,65 +366,103 @@ html.future .meta-row .network {
   white-space: nowrap;
 }
 
-/* =====================================================
-   MOBILE
-   ===================================================== */
+/* Mobile layout */
+@media (max-width: 640px) {
+  .page-title { font-size: 22px; }
+  .container { padding: 14px 12px 18px; }
 
-   @media (max-width: 640px) {
-    .page-title { font-size: 22px; }
-    .container { padding: 14px 12px 18px; }
-  
-    #prevDayBtn,
-    #nextDayBtn {
-      display: none;
-    }
-  
-    #cardBoard {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
-    }
-  
-    .game-card {
-      padding: 10px;
-      border-radius: 12px;
-    }
-  
-    html.future .game-card.upcoming {
-      padding: 10px;
-    }
-  
-    /* ===============================
-       FILTER BAR – FORCE 2 ROWS
-       =============================== */
-  
-    .row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      align-items: center;
-    }
-  
-    /* Row 1: Updated + Thrill */
-    .row .muted {
-      grid-column: 1 / -1;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: nowrap;
-    }
-  
-    /* Row 2: Filter + Clear + Date */
-    #filterSelect {
-      grid-column: 1 / 2;
-    }
-  
-    #clearBtn {
-      grid-column: 2 / 3;
-    }
-  
-    #datePicker {
-      grid-column: 1 / -1;
-      margin-top: 4px;
-    }
+  th, td {
+    padding: 10px 10px;
+    font-size: 13px;
   }
-  
+
+  /* Keep text inputs full width if any exist (safe even if none) */
+  input[type="text"] {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .controls { gap: 8px; }
+  .controls .group { width: 100%; }
+  .spacer { display: none; }
+
+  /* Keep filter bar flexible */
+  .row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 12px;
+  }
+
+  /* No arrows on mobile */
+  #prevDayBtn,
+  #nextDayBtn {
+    display: none;
+  }
+
+  /* Compact inline controls */
+  #minThrill,
+  #confFilter {
+    height: 32px;
+    font-size: 13px;
+    padding: 4px 8px;
+    border-radius: 10px;
+    min-width: 0;
+  }
+
+  #clearFilters {
+    height: 32px;
+    font-size: 13px;
+    padding: 4px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+  }
+
+  /* Date picker MUST NOT be full width */
+  #datePicker {
+    width: auto;        /* key change */
+    height: 32px;
+    font-size: 13px;
+    padding: 4px 8px;
+    border-radius: 10px;
+  }
+
+  /* Optional: make Clear more low-key */
+  #clearFilters.secondary {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+    color: var(--muted);
+  }
+
+  /* ======================
+     MOBILE CARDS (2-up)
+     ====================== */
+  #cardBoard {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .game-card {
+    padding: 10px 10px;
+    border-radius: 12px;
+    gap: 4px;
+  }
+
+  .matchup {
+    font-size: 14px;
+    line-height: 1.15;
+  }
+
+  .status  { font-size: 10px; }
+  .main    { font-size: 16px; }
+  .sub     { display: none; }
+
+  .footer {
+    font-size: 10px;
+    margin-top: 4px;
+  }
+}
