@@ -1,0 +1,126 @@
+{
+  "1": {
+    "name": "America East Conference",
+    "short": "Am. East"
+  },
+  "2": {
+    "name": "Atlantic Coast Conference",
+    "short": "ACC"
+  },
+  "3": {
+    "name": "Atlantic 10 Conference",
+    "short": "A-10"
+  },
+  "4": {
+    "name": "Big East Conference",
+    "short": "Big East"
+  },
+  "5": {
+    "name": "Big Sky Conference",
+    "short": "Big Sky"
+  },
+  "6": {
+    "name": "Big South Conference",
+    "short": "Big South"
+  },
+  "7": {
+    "name": "Big Ten Conference",
+    "short": "Big Ten"
+  },
+  "8": {
+    "name": "Big 12 Conference",
+    "short": "Big 12"
+  },
+  "9": {
+    "name": "Big West Conference",
+    "short": "Big West"
+  },
+  "10": {
+    "name": "Coastal Athletic Association",
+    "short": "CAA"
+  },
+  "11": {
+    "name": "Conference USA",
+    "short": "CUSA"
+  },
+  "12": {
+    "name": "Ivy League",
+    "short": "Ivy"
+  },
+  "13": {
+    "name": "Metro Atlantic Athletic Conference",
+    "short": "MAAC"
+  },
+  "14": {
+    "name": "Mid-American Conference",
+    "short": "MAC"
+  },
+  "16": {
+    "name": "Mid-Eastern Athletic Conference",
+    "short": "MEAC"
+  },
+  "18": {
+    "name": "Missouri Valley Conference",
+    "short": "MVC"
+  },
+  "19": {
+    "name": "Northeast Conference",
+    "short": "NEC"
+  },
+  "20": {
+    "name": "Ohio Valley Conference",
+    "short": "OVC"
+  },
+  "22": {
+    "name": "Patriot League",
+    "short": "Patriot"
+  },
+  "23": {
+    "name": "Southeastern Conference",
+    "short": "SEC"
+  },
+  "24": {
+    "name": "Southern Conference",
+    "short": "SoCon"
+  },
+  "25": {
+    "name": "Southland Conference",
+    "short": "Southland"
+  },
+  "26": {
+    "name": "Southwestern Athletic Conference",
+    "short": "SWAC"
+  },
+  "27": {
+    "name": "Sun Belt Conference",
+    "short": "Sun Belt"
+  },
+  "29": {
+    "name": "West Coast Conference",
+    "short": "WCC"
+  },
+  "30": {
+    "name": "Western Athletic Conference",
+    "short": "WAC"
+  },
+  "44": {
+    "name": "Mountain West Conference",
+    "short": "Mountain West"
+  },
+  "45": {
+    "name": "Horizon League",
+    "short": "Horizon"
+  },
+  "46": {
+    "name": "ASUN Conference",
+    "short": "ASUN"
+  },
+  "49": {
+    "name": "Summit League",
+    "short": "Summit"
+  },
+  "62": {
+    "name": "American Conference",
+    "short": "American"
+  }
+}

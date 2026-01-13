@@ -19,6 +19,35 @@ def fetch_scoreboard(date_espn: str) -> dict:
         )
     return r.json()
 
+def _extract_conference(team: dict) -> dict:
+    """
+    Best-effort conference extraction from ESPN scoreboard team payload.
+    Returns consistent shape even when fields are missing.
+    """
+    if not isinstance(team, dict):
+        return {"id": "", "name": "", "short": ""}
+
+    # Common case: conferenceId is present
+    conf_id = team.get("conferenceId")
+
+    # Sometimes there’s a richer conference object (varies by endpoint/payload)
+    conf_obj = team.get("conference") or {}
+    if not conf_id and isinstance(conf_obj, dict):
+        conf_id = conf_obj.get("id") or conf_obj.get("groupId")
+
+    name = ""
+    short = ""
+    if isinstance(conf_obj, dict):
+        # These keys can vary; take best available
+        name = conf_obj.get("name") or conf_obj.get("displayName") or conf_obj.get("shortDisplayName") or ""
+        short = conf_obj.get("shortName") or conf_obj.get("abbreviation") or ""
+
+    return {
+        "id": str(conf_id) if conf_id else "",
+        "name": name or "",
+        "short": short or "",
+    }
+
 def parse_games(scoreboard_json: dict) -> list[dict]:
     events = scoreboard_json.get("events", []) or []
     games = []
@@ -31,10 +60,18 @@ def parse_games(scoreboard_json: dict) -> list[dict]:
 
         home = away = None
         home_score = away_score = None
+        home_conf = {"id": "", "name": "", "short": ""}
+        away_conf = {"id": "", "name": "", "short": ""}
+        home_team_id = ""
+        away_team_id = ""
 
         for c in comp.get("competitors", []) or []:
             team = (c.get("team") or {})
             name = team.get("shortDisplayName") or team.get("displayName") or team.get("name")
+
+            # team ids are useful later (mapping, logos, etc.)
+            tid = team.get("id")
+            tid = str(tid) if tid else ""
 
             score_raw = c.get("score")
             try:
@@ -42,12 +79,18 @@ def parse_games(scoreboard_json: dict) -> list[dict]:
             except Exception:
                 score = None
 
+            conf = _extract_conference(team)
+
             if c.get("homeAway") == "home":
                 home = name
+                home_team_id = tid
                 home_score = score
+                home_conf = conf
             elif c.get("homeAway") == "away":
                 away = name
+                away_team_id = tid
                 away_score = score
+                away_conf = conf
 
         start_utc = comp.get("startDate") or comp.get("date") or ev.get("date")
 
@@ -72,8 +115,16 @@ def parse_games(scoreboard_json: dict) -> list[dict]:
 
         games.append({
             "event_id": ev.get("id"),
+
             "away": away,
             "home": home,
+            "away_team_id": away_team_id,
+            "home_team_id": home_team_id,
+
+            # ✅ conference info added here
+            "away_conf": away_conf,   # {id, name, short}
+            "home_conf": home_conf,   # {id, name, short}
+
             "start_utc": start_utc,
             "network": network,
             "key": matchup_key(away, home),

@@ -1,6 +1,6 @@
 // =====================================================
 // College Basketball Dashboard UI (drop-in replacement)
-// Keeps behavior identical; refactored for readability.
+// Adds: Hi/Mid + per-conference filter that only shows conferences with games that day
 // =====================================================
 
 // ---------------------
@@ -22,14 +22,79 @@ const state = {
     minThrill: 0,
     networkChoice: "",
     hideEspnPlus: false,
+
+    // 🆕 Conference filter:
+    // "" = all
+    // "hi" = high major
+    // "mid" = mid major
+    // "conf:<id>" = specific conference id
+    confChoice: "",
   },
 
   timers: {
     livePollTimer: null,
+    idlePollTimer: null,
     updatedTimer: null,
     lastUpdatedMs: null,
   },
 };
+
+// =====================================================
+// Conference tiers (Hi-major / Mid-major)
+// =====================================================
+// IMPORTANT: backend now returns g.away_conf / g.home_conf as objects: {id, name, short}
+
+const HI_MAJOR_CONF_IDS = new Set([
+  // Update IDs if your conf_map.json uses different ones:
+  // Example assumption based on your earlier map snippet:
+  // 2=ACC, 4=Big East, 8=Big Ten, 12=Big 12, 23=SEC  (placeholder; verify in your conf_map.json)
+  //
+  // ✅ EASIEST: you can log available conference ids from today and confirm once.
+  //
+  // For now, we key off SHORT NAME instead (more robust given your data includes short/name).
+]);
+
+const HI_MAJOR_SHORTS = new Set([
+  "ACC",
+  "Big 12",
+  "Big East",
+  "Big Ten",
+  "SEC",
+]);
+
+function confShort(g, side) {
+  const c = side === "home" ? g.home_conf : g.away_conf;
+  return (c && typeof c === "object" ? (c.short || c.name || "") : "") || "";
+}
+
+function confId(g, side) {
+  const c = side === "home" ? g.home_conf : g.away_conf;
+  return (c && typeof c === "object" ? (c.id || "") : "") || "";
+}
+
+function isHighMajorConf(confObj) {
+  if (!confObj || typeof confObj !== "object") return false;
+  const s = (confObj.short || confObj.name || "").trim();
+  if (!s) return false;
+  return HI_MAJOR_SHORTS.has(s);
+}
+
+function gameIsHighMajor(g) {
+  return isHighMajorConf(g.home_conf) || isHighMajorConf(g.away_conf);
+}
+
+function gameIsMidMajor(g) {
+  // Treat unknowns as mid (keeps them visible instead of disappearing)
+  const hasAny = !!(confShort(g, "home") || confShort(g, "away") || confId(g, "home") || confId(g, "away"));
+  if (!hasAny) return true;
+  return !gameIsHighMajor(g);
+}
+
+function gameInConferenceId(g, confIdWanted) {
+  const hid = confId(g, "home");
+  const aid = confId(g, "away");
+  return (hid && hid === confIdWanted) || (aid && aid === confIdWanted);
+}
 
 // =====================================================
 // UI helpers (error/table)
@@ -92,7 +157,6 @@ function setPollingMode(mode) {
 
   // "off" → nothing running
 }
-
 
 // =====================================================
 // Updated-ago ticker
@@ -213,6 +277,35 @@ function fmtPred(g) {
 }
 
 // =====================================================
+// 🆕 Live-first sorting helpers
+// =====================================================
+function isLiveGame(g) {
+  return String(g.status_state || "").toLowerCase() === "in" || g.status === "live";
+}
+
+function parseClockToSeconds(clockStr) {
+  if (!clockStr || typeof clockStr !== "string") return Number.POSITIVE_INFINITY;
+  const parts = clockStr.trim().split(":").map((x) => parseInt(x, 10));
+  if (parts.length !== 2 || parts.some((n) => !Number.isFinite(n))) return Number.POSITIVE_INFINITY;
+  const [m, s] = parts;
+  return (m * 60) + s;
+}
+
+function liveRemainingSeconds(g) {
+  const clockSec = parseClockToSeconds(g.clock);
+  if (!Number.isFinite(clockSec)) return Number.POSITIVE_INFINITY;
+
+  const HALF_SEC = 20 * 60;
+  const p = Number(g.period || g.status_period || 0);
+
+  if (p <= 1) return HALF_SEC + clockSec;
+  if (p === 2) return clockSec;
+
+  const otNumber = Math.max(1, p - 2);
+  return clockSec + (otNumber - 1) * 0.001;
+}
+
+// =====================================================
 // Sorting
 // =====================================================
 function getSortValue(g, key) {
@@ -229,47 +322,69 @@ function getSortValue(g, key) {
   return null;
 }
 
-function sortGames(games) {
+function compareNormal(a, b) {
   const { key: sortKey, dir: sortDir } = state.sort;
 
-  // Special: time asc, with thrill desc tiebreaker
   if (sortKey === "time") {
-    return [...games].sort((a, b) => {
-      const at = getSortValue(a, "time");
-      const bt = getSortValue(b, "time");
+    const at = getSortValue(a, "time");
+    const bt = getSortValue(b, "time");
 
-      if (at == null && bt == null) return 0;
-      if (at == null) return 1;
-      if (bt == null) return -1;
+    if (at == null && bt == null) return 0;
+    if (at == null) return 1;
+    if (bt == null) return -1;
 
-      if (at !== bt) return at - bt;
+    if (at !== bt) return at - bt;
 
-      const av = getSortValue(a, "thrill");
-      const bv = getSortValue(b, "thrill");
-
-      if (av == null && bv == null) return 0;
-      if (av == null) return 1;
-      if (bv == null) return -1;
-
-      return bv - av;
-    });
-  }
-
-  // Normal: kp/thrill with direction
-  const dir = sortDir === "asc" ? 1 : -1;
-
-  return [...games].sort((a, b) => {
-    const av = getSortValue(a, sortKey);
-    const bv = getSortValue(b, sortKey);
+    const av = getSortValue(a, "thrill");
+    const bv = getSortValue(b, "thrill");
 
     if (av == null && bv == null) return 0;
     if (av == null) return 1;
     if (bv == null) return -1;
 
-    if (av < bv) return -1 * dir;
-    if (av > bv) return 1 * dir;
-    return 0;
-  });
+    return bv - av;
+  }
+
+  const dir = sortDir === "asc" ? 1 : -1;
+
+  const av = getSortValue(a, sortKey);
+  const bv = getSortValue(b, sortKey);
+
+  if (av == null && bv == null) return 0;
+  if (av == null) return 1;
+  if (bv == null) return -1;
+
+  if (av < bv) return -1 * dir;
+  if (av > bv) return 1 * dir;
+  return 0;
+}
+
+function compareWithLiveOverride(a, b) {
+  const aLive = isLiveGame(a);
+  const bLive = isLiveGame(b);
+
+  if (aLive !== bLive) return aLive ? -1 : 1;
+
+  if (aLive && bLive) {
+    const ar = liveRemainingSeconds(a);
+    const br = liveRemainingSeconds(b);
+    if (ar !== br) return ar - br;
+
+    const at = getSortValue(a, "thrill");
+    const bt = getSortValue(b, "thrill");
+    if (at != null || bt != null) {
+      if (at == null) return 1;
+      if (bt == null) return -1;
+      if (at !== bt) return bt - at;
+    }
+    return compareNormal(a, b);
+  }
+
+  return compareNormal(a, b);
+}
+
+function sortGames(games) {
+  return [...games].sort(compareWithLiveOverride);
 }
 
 function setHeaderLabels() {
@@ -299,13 +414,11 @@ function renderTable(games) {
   for (const g of games) {
     const tr = document.createElement("tr");
 
-    // Start
     const start = document.createElement("td");
     start.className = "nowrap";
     start.textContent = formatLocalTime(g.start_utc);
     tr.appendChild(start);
 
-    // Matchup (link if we have ESPN URL)
     const matchup = document.createElement("td");
     matchup.className = "matchup";
 
@@ -324,19 +437,16 @@ function renderTable(games) {
     }
     tr.appendChild(matchup);
 
-    // Network
     const network = document.createElement("td");
     network.className = "network";
     network.textContent = g.network || "";
     tr.appendChild(network);
 
-    // KenPom (or score if live/final)
     const kp = document.createElement("td");
     kp.className = "kp";
     kp.textContent = fmtPred(g);
     tr.appendChild(kp);
 
-    // Thrill
     const thrill = document.createElement("td");
     const t = Number(g.kp_thrill);
     let cls = "thrill";
@@ -371,7 +481,6 @@ function renderCards(games) {
     const card = document.createElement("div");
     card.className = "game-card";
 
-    // --- state / status ---
     let stateCls = "upcoming";
     let statusText = formatLocalTime(g.start_utc);
     let mainText = fmtPred(g);
@@ -384,11 +493,18 @@ function renderCards(games) {
       stateCls = "live";
       statusText = g.clock || "Live";
       mainText = g.score || "Live";
+    } else if (String(g.status_state || "").toLowerCase() === "post") {
+      stateCls = "final";
+      statusText = "Final";
+      mainText = g.score || fmtPred(g);
+    } else if (String(g.status_state || "").toLowerCase() === "in") {
+      stateCls = "live";
+      statusText = g.clock || "Live";
+      mainText = g.score || fmtPred(g);
     }
 
     card.classList.add(stateCls);
 
-    // --- matchup (link if we have ESPN URL) ---
     const matchup = document.createElement("div");
     matchup.className = "matchup";
 
@@ -406,28 +522,20 @@ function renderCards(games) {
       matchup.textContent = `${g.away} @ ${g.home}`;
     }
 
-    // --- status ---
     const status = document.createElement("div");
     status.className = "status";
     status.textContent = statusText;
 
-    // --- main line (score or prediction) ---
     const main = document.createElement("div");
     main.className = "main";
     main.textContent = mainText;
 
-    // --- sub line ---
     const sub = document.createElement("div");
     sub.className = "sub";
-    if (stateCls === "upcoming") {
-      sub.textContent = "KenPom prediction";
-    } else if (stateCls === "live") {
-      sub.textContent = "Live game";
-    } else {
-      sub.textContent = "";
-    }
+    if (stateCls === "upcoming") sub.textContent = "KenPom prediction";
+    else if (stateCls === "live") sub.textContent = "Live game";
+    else sub.textContent = "";
 
-    // --- footer: thrill + network ---
     const footer = document.createElement("div");
     footer.className = "footer";
 
@@ -453,7 +561,6 @@ function renderCards(games) {
     footer.appendChild(thrill);
     footer.appendChild(network);
 
-    // assemble
     card.appendChild(matchup);
     card.appendChild(status);
     card.appendChild(main);
@@ -463,10 +570,8 @@ function renderCards(games) {
     board.appendChild(card);
   }
 
-  // Make sure board is visible
   board.style.display = "grid";
 
-  // Keep table hidden (for safety; you already hid wrapper in HTML)
   const tbl = $("tbl");
   if (tbl) tbl.style.display = "none";
 }
@@ -496,18 +601,96 @@ function buildNetworkOptions() {
   if (current) sel.value = current;
 }
 
+// =====================================================
+// 🆕 Conference dropdown (Hi/Mid + conferences present that day)
+// Requires: <select id="confFilter"></select> in HTML (safe no-op if missing)
+// =====================================================
+function buildConferenceOptions() {
+  const sel = $("confFilter");
+  if (!sel) return;
+
+  const prev = state.filters.confChoice || "";
+
+  // Collect conferences that appear today
+  const idToLabel = new Map(); // id -> label (short preferred)
+  for (const g of state.games) {
+    for (const side of ["away", "home"]) {
+      const c = side === "home" ? g.home_conf : g.away_conf;
+      if (!c || typeof c !== "object") continue;
+
+      const id = String(c.id || "").trim();
+      if (!id) continue;
+
+      const label = (c.short || c.name || "").trim() || id;
+      if (!idToLabel.has(id)) idToLabel.set(id, label);
+    }
+  }
+
+  // Sort conferences alphabetically by label
+  const confs = Array.from(idToLabel.entries())
+    .map(([id, label]) => ({ id, label }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+
+  // Build options
+  sel.innerHTML = "";
+  sel.appendChild(new Option("All games", ""));
+
+  // Only include hi/mid if there are any games in those buckets today
+  const hasHi = state.games.some(gameIsHighMajor);
+  const hasMid = state.games.some(gameIsMidMajor);
+
+  if (hasHi) sel.appendChild(new Option("High Major", "hi"));
+  if (hasMid) sel.appendChild(new Option("Mid Major", "mid"));
+
+  // Conferences that have games today
+  if (confs.length) {
+    // visual separator (still a normal option; disabled)
+    const sep = new Option("──────────", "__sep__");
+    sep.disabled = true;
+    sel.appendChild(sep);
+
+    for (const c of confs) {
+      sel.appendChild(new Option(c.label, `conf:${c.id}`));
+    }
+  }
+
+  // Restore previous selection if still valid
+  const allowedValues = new Set(Array.from(sel.options).map((o) => o.value));
+  if (prev && allowedValues.has(prev)) {
+    sel.value = prev;
+  } else {
+    sel.value = "";
+    state.filters.confChoice = "";
+  }
+}
+
+// =====================================================
+// Filtering
+// =====================================================
 function applyFilters(games) {
   const q = state.filters.qText.trim().toLowerCase();
   const minT = Number(state.filters.minThrill) || 0;
+  const confChoice = String(state.filters.confChoice || "");
 
   return games.filter((g) => {
     if (state.filters.hideEspnPlus && (g.network || "").toUpperCase().includes("ESPN+")) return false;
-
     if (state.filters.networkChoice && (g.network || "") !== state.filters.networkChoice) return false;
 
     if (minT > 0) {
       const t = Number(g.kp_thrill);
       if (!Number.isFinite(t) || t < minT) return false;
+    }
+
+    // 🆕 Conf filter
+    if (confChoice) {
+      if (confChoice === "hi") {
+        if (!gameIsHighMajor(g)) return false;
+      } else if (confChoice === "mid") {
+        if (!gameIsMidMajor(g)) return false;
+      } else if (confChoice.startsWith("conf:")) {
+        const idWanted = confChoice.slice(5);
+        if (!gameInConferenceId(g, idWanted)) return false;
+      }
     }
 
     if (q) {
@@ -577,24 +760,33 @@ function wireFilters() {
     applySortAndRender();
   });
 
+  // 🆕 Conference filter (only if you add <select id="confFilter">)
+  $("confFilter")?.addEventListener("change", (e) => {
+    const v = e.target.value || "";
+    // ignore disabled separator value
+    if (v === "__sep__") return;
+    state.filters.confChoice = v;
+    applySortAndRender();
+  });
+
   $("clearFilters")?.addEventListener("click", () => {
     state.filters.qText = "";
     state.filters.minThrill = 0;
     state.filters.networkChoice = "";
     state.filters.hideEspnPlus = false;
+    state.filters.confChoice = "";
 
     if ($("q")) $("q").value = "";
     if ($("minThrill")) $("minThrill").value = "0";
     if ($("networkFilter")) $("networkFilter").value = "";
     if ($("hideEspnPlus")) $("hideEspnPlus").checked = false;
+    if ($("confFilter")) $("confFilter").value = "";
 
     applySortAndRender();
   });
 
-  // Reload
   $("reloadBtn")?.addEventListener("click", () => loadGames());
 
-  // Date picker + prev/next
   $("datePicker")?.addEventListener("change", (e) => {
     const yyyymmdd = yyyymmddFromDateInput(e.target.value);
     loadGames(yyyymmdd);
@@ -636,11 +828,8 @@ async function fetchGames(date_espn, date_kp) {
 // =====================================================
 async function loadGames(yyyymmdd = null, silent = false) {
   clearError();
-
-  // Only blank UI on non-silent loads (manual reload/date change)
   if (!silent) clearTableForFullLoad();
 
-  // Determine date (fallback to datePicker, then today)
   if (!yyyymmdd) {
     const pickerVal = $("datePicker")?.value || "";
     yyyymmdd = pickerVal ? yyyymmddFromDateInput(pickerVal) : null;
@@ -653,10 +842,8 @@ async function loadGames(yyyymmdd = null, silent = false) {
   const date_kp = isoFromYYYYMMDD(yyyymmdd);
   const date_espn = yyyymmdd;
 
-  // Keep UI in sync
   if ($("datePicker")) $("datePicker").value = date_kp;
 
-  // URLs + games
   state.urlsByEventId = await fetchEspnUrls(date_espn);
 
   let resp, data;
@@ -674,26 +861,18 @@ async function loadGames(yyyymmdd = null, silent = false) {
 
   state.games = data.games || [];
 
-// Future date mode (hide KP + thrill columns)
-const isFuture = data.mode === "future";
-document.documentElement.classList.toggle("future", isFuture);
+  // Future date mode (hide KP + thrill columns)
+  const isFuture = data.mode === "future";
+  document.documentElement.classList.toggle("future", isFuture);
 
-// Poll only when viewing TODAY (local).
-// - Live games: 5s
-// - No live games: 60s
-// - Past / future dates: off
-const hasLive = state.games.some(
-  (g) => String(g.status_state || "").toLowerCase() === "in"
-);
+  const hasLive = state.games.some((g) => String(g.status_state || "").toLowerCase() === "in" || g.status === "live");
+  const isToday = ($("datePicker")?.value || "") === todayIsoLocal();
+  setPollingMode(!isFuture && isToday ? (hasLive ? "live" : "idle") : "off");
 
-const isToday = ($("datePicker")?.value || "") === todayIsoLocal();
-
-setPollingMode(!isFuture && isToday ? (hasLive ? "live" : "idle") : "off");
-
-buildNetworkOptions();
-applySortAndRender();
-setLastUpdatedNow();
-
+  buildNetworkOptions();
+  buildConferenceOptions(); // ✅ only shows hi/mid + conferences with games today
+  applySortAndRender();
+  setLastUpdatedNow();
 }
 
 // =====================================================
