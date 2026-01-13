@@ -13,3 +13,5 @@ build/
 
 # OS junk
 .DS_Store
+cache.sqlite3
+*.sqlite3
