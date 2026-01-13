@@ -1,3 +1,5 @@
+/* UPDATED BY CHATGPT: 2026-01-13 — cleanup/refactor (no visual changes intended) */
+
 :root{
   --bg: #ffffff;
   --text: #111827;
@@ -271,6 +273,11 @@ thead th {
   letter-spacing: .06em;
 }
 
+/* Thrill color coding (table + cards) */
+.thrill.low  { color: #6b7280; }
+.thrill.mid  { color: #2563eb; }
+.thrill.high { color: #dc2626; }
+
 tbody tr:nth-child(even) { background: var(--row); }
 tbody tr:hover { background: var(--rowHover); }
 
@@ -282,10 +289,6 @@ td.matchup a:hover { text-decoration: underline; }
 
 td.network { color: var(--muted); font-size: 13px; }
 td.kp, td.thrill { text-align: right; font-variant-numeric: tabular-nums; }
-
-td.thrill.low { color: #6b7280; }
-td.thrill.mid { color: #2563eb; }
-td.thrill.high { color: #dc2626; }
 
 html.future th.kp,
 html.future td.kp,
@@ -371,10 +374,6 @@ html.future td.thrill {
   color: var(--muted);
 }
 
-.thrill.high { color: #dc2626; }
-.thrill.mid  { color: #2563eb; }
-.thrill.low  { color: #6b7280; }
-
 /* =====================================================
    FUTURE DAY: SQUARE TILES
    ===================================================== */
@@ -447,10 +446,7 @@ html.future .meta-row .network {
   .spacer { display: none; }
 
   .row {
-    display: flex;
     gap: 10px;
-    flex-wrap: wrap;
-    align-items: center;
     margin-top: 12px;
   }
 
