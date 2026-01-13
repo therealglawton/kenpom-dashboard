@@ -356,6 +356,16 @@ html.future .meta-row .network {
   font-weight: 800;
 }
 
+/* Stable updated timer (prevents layout shift) */
+.updatedAgo{
+  display: inline-block;
+  width: 3ch;                /* "60s" max */
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  white-space: nowrap;
+}
+
 /* =====================================================
    MOBILE
    ===================================================== */
