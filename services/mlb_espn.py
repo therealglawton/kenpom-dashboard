@@ -52,7 +52,7 @@ def get_mlb_games(date_yyyymmdd: str, timeout: int = 12) -> List[Dict[str, Any]]
                 "id": team.get("id"),
                 "abbr": team.get("abbreviation"),
                 "name": team.get("displayName"),
-                "score": _safe_int(c.get("score")),
+                "score": None if state == "pre" else _safe_int(c.get("score")),
             }
             if side == "home":
                 home = item
