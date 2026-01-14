@@ -314,12 +314,25 @@ function isLiveGame(g) {
   return String(g.status_state || "").toLowerCase() === "in" || g.status === "live";
 }
 
-function parseClockToSeconds(clockStr) {
-  if (!clockStr || typeof clockStr !== "string") return Number.POSITIVE_INFINITY;
-  const parts = clockStr.trim().split(":").map((x) => parseInt(x, 10));
-  if (parts.length !== 2 || parts.some((n) => !Number.isFinite(n))) return Number.POSITIVE_INFINITY;
-  const [m, s] = parts;
-  return (m * 60) + s;
+function parseClockToSeconds(clockVal) {
+  // Backend currently sends numeric seconds (e.g., 597 for 9:57).
+  // ESPN-style strings ("9:57") are also supported.
+  if (clockVal === null || clockVal === undefined || clockVal === "") return Number.POSITIVE_INFINITY;
+
+  // Numeric seconds
+  if (typeof clockVal === "number") {
+    return Number.isFinite(clockVal) ? Math.max(0, Math.floor(clockVal)) : Number.POSITIVE_INFINITY;
+  }
+
+  // String "m:ss"
+  if (typeof clockVal === "string") {
+    const parts = clockVal.trim().split(":").map((x) => parseInt(x, 10));
+    if (parts.length !== 2 || parts.some((n) => !Number.isFinite(n))) return Number.POSITIVE_INFINITY;
+    const [m, s] = parts;
+    return (m * 60) + s;
+  }
+
+  return Number.POSITIVE_INFINITY;
 }
 
 function liveRemainingSeconds(g) {
@@ -524,16 +537,16 @@ function renderCards(games) {
       mainText = g.score || "Final";
     } else if (g.status === "live") {
       stateCls = "live";
-      statusText = g.clock || "Live";
-      mainText = g.score || "Live";
+      statusText = "LIVE";
+      mainText = fmtPred(g);
     } else if (String(g.status_state || "").toLowerCase() === "post") {
       stateCls = "final";
       statusText = "Final";
       mainText = g.score || fmtPred(g);
     } else if (String(g.status_state || "").toLowerCase() === "in") {
       stateCls = "live";
-      statusText = g.clock || "Live";
-      mainText = g.score || fmtPred(g);
+      statusText = "LIVE";
+      mainText = fmtPred(g);
     }
 
     card.classList.add(stateCls);
