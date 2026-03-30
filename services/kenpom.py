@@ -45,7 +45,21 @@ def fetch_fanmatch(date_kp: str) -> list[dict]:
         except Exception as e:
             # Don't cache exceptions; bubble as 500
             raise HTTPException(status_code=500, detail=f"KenPom request failed: {type(e).__name__}: {e}")
-        # Only return JSON if 200; otherwise return text for debug
+
+        # Treat a known KenPom 404 with no games as an empty response
+        if r.status_code == 404:
+            body_text = r.text or ""
+            no_games = False
+            try:
+                err = r.json()
+                if isinstance(err, dict) and "error" in err and "No games found for the specified date" in err["error"]:
+                    no_games = True
+            except Exception:
+                if "No games found for the specified date" in body_text:
+                    no_games = True
+            if no_games:
+                return 200, []
+
         if r.status_code != 200:
             raise HTTPException(
                 status_code=500,
