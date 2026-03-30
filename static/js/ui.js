@@ -677,6 +677,9 @@ function renderMlbCards(games) {
 
   if (!sorted.length) {
     board.innerHTML = `<div class="muted">No MLB games for this date.</div>`;
+    board.style.display = "block";
+    const tbl = $("tbl");
+    if (tbl) tbl.style.display = "none";
     return;
   }
 
@@ -1070,7 +1073,15 @@ async function loadGames(yyyymmdd = null, silent = false) {
 // =====================================================
 // Boot
 // =====================================================
-wireTabs();
-wireSorting();
-wireFilters();
-setSport(state.sport);
+function boot() {
+  wireTabs();
+  wireSorting();
+  wireFilters();
+  setSport(state.sport);
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", boot);
+} else {
+  boot();
+}
