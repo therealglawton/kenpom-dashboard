@@ -1,0 +1,13 @@
+{
+  "name": "kenpom-dashboard",
+  "postAttachCommand": {
+    "server": "python -m uvicorn app:app --reload --host 0.0.0.0 --port 8000"
+  },
+  "forwardPorts": [8000],
+  "portsAttributes": {
+    "8000": {
+      "label": "FastAPI App",
+      "onAutoForward": "openPreview"
+    }
+  }
+}
