@@ -966,7 +966,12 @@ async function fetchEspnUrls(date_espn) {
 async function fetchGames(date_espn, date_kp) {
   const url = `/games?date_espn=${date_espn}&date_kp=${date_kp}`;
   const resp = await fetch(url);
-  const data = await resp.json();
+  let data = {};
+  try {
+    data = await resp.json();
+  } catch {
+    data = {};
+  }
   return { resp, data };
 }
 
@@ -1046,7 +1051,7 @@ async function loadGames(yyyymmdd = null, silent = false) {
     return;
   }
 
-  state.games = data.games || [];
+  state.games = Array.isArray(data.games) ? data.games : [];
 
   // Future date mode (drives future-day rendering + CSS)
   const isFuture = data.mode === "future";
