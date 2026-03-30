@@ -14,7 +14,7 @@ const $ = (id) => document.getElementById(id);
 // App state (single source of truth)
 // ---------------------
 const state = {
-  sport: "cbb",         // "cbb" | "mlb"
+  sport: "mlb",         // "cbb" | "mlb"
   games: [],            // CBB games
   mlbGames: [],         // MLB games
   urlsByEventId: {},
