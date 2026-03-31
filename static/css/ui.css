@@ -350,6 +350,16 @@ html.future td.thrill {
   font-weight: 700;
 }
 
+.matchup a {
+  color: #1d4ed8;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.matchup a:hover {
+  color: #1e40af;
+}
+
 .status {
   font-size: 12px;
   color: var(--muted);

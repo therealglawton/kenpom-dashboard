@@ -6,6 +6,11 @@ import requests
 
 SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard"
 
+def mlb_game_url(event_id: str | None) -> str:
+    if not event_id:
+        return ""
+    return f"https://www.espn.com/mlb/game/_/gameId/{event_id}"
+
 def _safe_int(x: Any) -> Optional[int]:
     try:
         if x is None:
@@ -64,6 +69,7 @@ def get_mlb_games(date_yyyymmdd: str, timeout: int = 12) -> List[Dict[str, Any]]
 
         out.append({
             "id": event_id,
+            "url": mlb_game_url(str(event_id) if event_id is not None else None),
             "startTime": start_time,
             "state": state,          # pre / in / post
             "status": detail,        # "Final", "Scheduled", etc.

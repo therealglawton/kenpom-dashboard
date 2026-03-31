@@ -667,6 +667,14 @@ function renderCards(games) {
   if (tbl) tbl.style.display = "none";
 }
 
+function mlbHrefFromGame(game) {
+  const direct = String(game?.url || "").trim();
+  if (direct) return direct;
+
+  const eventId = String(game?.id || "").trim();
+  return eventId ? `https://www.espn.com/mlb/game/_/gameId/${eventId}` : "";
+}
+
 // MLB cards (reuses .game-card styling)
 function renderMlbCards(games) {
   const board = $("cardBoard");
@@ -697,7 +705,17 @@ function renderMlbCards(games) {
 
     const matchup = document.createElement("div");
     matchup.className = "matchup";
-    matchup.textContent = `${away} @ ${home}`;
+    const href = mlbHrefFromGame(g);
+    if (href) {
+      const a = document.createElement("a");
+      a.href = href;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.textContent = `${away} @ ${home}`;
+      matchup.appendChild(a);
+    } else {
+      matchup.textContent = `${away} @ ${home}`;
+    }
 
     const status = document.createElement("div");
     status.className = "status";
