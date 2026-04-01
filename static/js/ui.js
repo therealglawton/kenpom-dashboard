@@ -9,6 +9,7 @@
 // DOM helper
 // ---------------------
 const $ = (id) => document.getElementById(id);
+const mlbLogoTemplateCache = new Map();
 
 // ---------------------
 // App state (single source of truth)
@@ -34,6 +35,7 @@ const state = {
   timers: {
     livePollTimer: null,
     idlePollTimer: null,
+    pollInFlight: false,
     updatedTimer: null,
     lastUpdatedMs: null,
   },
@@ -64,7 +66,7 @@ function setSport(sport) {
     if (el) el.disabled = !isCbb;
   });
 
-  // Stop any polling when switching sports (MLB polling can be added later)
+  // Stop active polling while switching sports; loadGames will set mode.
   setPollingMode("off");
 
   loadGames(null, false);
@@ -148,7 +150,7 @@ function clearTableForFullLoad() {
 }
 
 // =====================================================
-// Polling: live (5s) + idle (60s), silent refresh
+// Polling: live (3s) + idle (60s), silent refresh
 // =====================================================
 function setPollingMode(mode) {
   // mode: "live" | "idle" | "off"
@@ -164,14 +166,22 @@ function setPollingMode(mode) {
   }
 
   const poll = (ms) => {
-    return setInterval(() => {
+    return setInterval(async () => {
+      if (state.timers.pollInFlight) return;
+      state.timers.pollInFlight = true;
+      // Heartbeat for auto-refresh visibility even when a poll request fails.
+      setLastUpdatedNow();
       const cur = yyyymmddFromDateInput($("datePicker")?.value || "");
-      loadGames(cur, true); // silent refresh
+      try {
+        await loadGames(cur, true); // silent refresh
+      } finally {
+        state.timers.pollInFlight = false;
+      }
     }, ms);
   };
 
   if (mode === "live") {
-    state.timers.livePollTimer = poll(5000);
+    state.timers.livePollTimer = poll(3000);
     return;
   }
 
@@ -310,6 +320,18 @@ function fmtPred(g) {
 // =====================================================
 function isLiveGame(g) {
   return String(g.status_state || "").toLowerCase() === "in" || g.status === "live";
+}
+
+function isMlbLiveGame(g) {
+  const stateVal = String(g?.state || "").toLowerCase();
+  if (stateVal === "in" || stateVal === "live") return true;
+
+  const statusVal = String(g?.status || "").toLowerCase();
+  if (statusVal.includes("top") || statusVal.includes("bottom") || statusVal.includes("mid") || statusVal.includes("live")) {
+    return true;
+  }
+
+  return !!g?.live?.inning_text;
 }
 
 function parseClockToSeconds(clockVal) {
@@ -674,7 +696,17 @@ function mlbHrefFromGame(game) {
 }
 
 function channelTextFromGame(game) {
-  const channels = Array.isArray(game?.channels) ? game.channels.filter(Boolean) : [];
+  const channels = Array.isArray(game?.channels)
+    ? game.channels
+        .filter(Boolean)
+        .filter((c) => {
+          const raw = String(c).trim().toLowerCase();
+          const compact = raw.replace(/[^a-z0-9]/g, "");
+          if (compact === "mlbtv") return false;
+          if (compact.includes("espnunlimited") || compact.includes("espnunlmtd")) return false;
+          return true;
+        })
+    : [];
   return channels.join(", ");
 }
 
@@ -687,16 +719,23 @@ function buildBasesGraphic(live) {
 
   const first = document.createElement("span");
   first.className = `base first${live?.on_first ? " on" : ""}`;
+  first.setAttribute("aria-label", `1st base ${live?.on_first ? "occupied" : "empty"}`);
 
   const second = document.createElement("span");
   second.className = `base second${live?.on_second ? " on" : ""}`;
+  second.setAttribute("aria-label", `2nd base ${live?.on_second ? "occupied" : "empty"}`);
 
   const third = document.createElement("span");
   third.className = `base third${live?.on_third ? " on" : ""}`;
+  third.setAttribute("aria-label", `3rd base ${live?.on_third ? "occupied" : "empty"}`);
+
+  const plate = document.createElement("span");
+  plate.className = "base plate";
 
   diamond.appendChild(first);
   diamond.appendChild(second);
   diamond.appendChild(third);
+  diamond.appendChild(plate);
   wrap.appendChild(diamond);
   return wrap;
 }
@@ -736,12 +775,267 @@ function shouldShowDemoLiveCard() {
   }
 }
 
+function enrichMlbLiveContext(prevGames, nextGames) {
+  const prevById = new Map((prevGames || []).map((g) => [String(g?.id || ""), g]));
+
+  return (nextGames || []).map((g) => {
+    if (String(g?.state || "").toLowerCase() !== "in") return g;
+
+    const live = { ...(g.live || {}) };
+    const prevLive = prevById.get(String(g?.id || ""))?.live || {};
+    const isBetween = isBetweenInningsStatus(g?.status);
+
+    const dueUp = Array.isArray(live.due_up) ? live.due_up.filter((p) => p && p.name) : [];
+    const prevDueUp = Array.isArray(prevLive.due_up) ? prevLive.due_up.filter((p) => p && p.name) : [];
+
+    if (isBetween && !dueUp.length && prevDueUp.length) {
+      live.due_up = prevDueUp;
+    }
+
+    if ((!live.batter || !live.batter.name) && dueUp.length) {
+      live.batter = dueUp[0];
+    }
+
+    if (isBetween && (!live.batter || !live.batter.name)) {
+      const currentDue = Array.isArray(live.due_up) ? live.due_up.filter((p) => p && p.name) : [];
+      if (currentDue.length) {
+        live.batter = currentDue[0];
+      } else if (prevLive?.batter?.name) {
+        live.batter = prevLive.batter;
+      }
+    }
+
+    // During inning breaks ESPN can omit pitcher; keep last known live pitcher.
+    if ((!live.pitcher || !live.pitcher.name) && prevLive?.pitcher?.name) {
+      live.pitcher = prevLive.pitcher;
+    }
+
+    return { ...g, live };
+  });
+}
+
+function isBetweenInningsStatus(status) {
+  const s = String(status || "").toLowerCase();
+  return s.includes("middle") || s.includes("end");
+}
+
+function lastNameFromFullName(name) {
+  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "";
+
+  const last = parts[parts.length - 1].replace(/\./g, "").toUpperCase();
+  const suffixes = new Set(["JR", "SR", "II", "III", "IV", "V"]);
+
+  if (parts.length >= 2 && suffixes.has(last)) {
+    return `${parts[parts.length - 2]} ${parts[parts.length - 1]}`;
+  }
+
+  return parts[parts.length - 1];
+}
+
+function formatMlbStatusLabel(rawStatus) {
+  const txt = String(rawStatus || "").trim();
+  if (!txt) return "";
+
+  const m = txt.match(/^(top|bottom)\s+(.+)$/i);
+  if (!m) return txt;
+
+  const arrow = m[1].toLowerCase() === "top" ? "↑" : "↓";
+  return `${arrow} ${m[2]}`;
+}
+
+function buildMlbLiveStatusMeta(game, live) {
+  const wrap = document.createElement("div");
+  wrap.className = "mlb-live-status-meta";
+
+  if (isMlbLateCloseGame(game)) {
+    const closeChip = document.createElement("span");
+    closeChip.className = "mlb-live-chip close-game";
+    closeChip.textContent = "Close Game";
+    wrap.appendChild(closeChip);
+  }
+
+  if (isMlbRispGame(game)) {
+    const rispChip = document.createElement("span");
+    rispChip.className = "mlb-live-chip risp";
+    rispChip.textContent = "RISP";
+    wrap.appendChild(rispChip);
+  }
+
+  const inningChip = document.createElement("span");
+  inningChip.className = "mlb-live-chip inning";
+  inningChip.textContent = formatMlbStatusLabel(live?.inning_text || game?.status || "LIVE");
+  wrap.appendChild(inningChip);
+
+  if (!isBetweenInningsStatus(game?.status)) {
+    const balls = Number.isFinite(Number(live?.balls)) ? Number(live.balls) : "-";
+    const strikes = Number.isFinite(Number(live?.strikes)) ? Number(live.strikes) : "-";
+    const outs = Number.isFinite(Number(live?.outs)) ? Number(live.outs) : "-";
+
+    const countChip = document.createElement("span");
+    countChip.className = "mlb-live-chip";
+    countChip.textContent = `Count ${balls}-${strikes}`;
+
+    const outsChip = document.createElement("span");
+    outsChip.className = "mlb-live-chip outs";
+    outsChip.textContent = `Outs ${outs}`;
+
+    wrap.appendChild(countChip);
+    wrap.appendChild(outsChip);
+  }
+
+  return wrap;
+}
+
+function buildMlbLiveScoreboard(game) {
+  const board = document.createElement("div");
+  board.className = "mlb-live-board";
+
+  const awayRow = document.createElement("div");
+  awayRow.className = "mlb-live-row";
+  const awayTeam = buildMlbTeamWithLogo(game.away, "mlb-live-team-wrap", "mlb-live-team");
+  const awayScore = document.createElement("strong");
+  awayScore.className = "mlb-live-score";
+  awayScore.textContent = `${game.away?.score ?? "—"}`;
+  awayRow.appendChild(awayTeam);
+  awayRow.appendChild(awayScore);
+
+  const homeRow = document.createElement("div");
+  homeRow.className = "mlb-live-row";
+  const homeTeam = buildMlbTeamWithLogo(game.home, "mlb-live-team-wrap", "mlb-live-team");
+  const homeScore = document.createElement("strong");
+  homeScore.className = "mlb-live-score";
+  homeScore.textContent = `${game.home?.score ?? "—"}`;
+  homeRow.appendChild(homeTeam);
+  homeRow.appendChild(homeScore);
+
+  board.appendChild(awayRow);
+  board.appendChild(homeRow);
+  return board;
+}
+
+function buildMlbTeamWithLogo(team, wrapClass = "mlb-team-with-logo", labelClass = "mlb-team-label") {
+  const wrap = document.createElement("span");
+  wrap.className = wrapClass;
+
+  const logo = String(team?.logo || "").trim();
+  const label = team?.abbr || team?.name || "";
+
+  if (logo) {
+    let tmpl = mlbLogoTemplateCache.get(logo);
+    if (!tmpl) {
+      tmpl = document.createElement("img");
+      tmpl.className = "mlb-team-logo";
+      tmpl.src = logo;
+      tmpl.loading = "eager";
+      tmpl.decoding = "sync";
+      mlbLogoTemplateCache.set(logo, tmpl);
+    }
+
+    const img = tmpl.cloneNode(true);
+    img.alt = label ? `${label} logo` : "Team logo";
+    wrap.appendChild(img);
+  }
+
+  const txt = document.createElement("span");
+  txt.className = labelClass;
+  txt.textContent = label || "—";
+  wrap.appendChild(txt);
+
+  return wrap;
+}
+
+function mlbStateSortRank(state) {
+  const s = String(state || "").toLowerCase();
+  if (s === "in") return 0;
+  if (s === "post") return 1;
+  if (s === "pre") return 2;
+  return 3;
+}
+
+function mlbLiveHalfRank(game) {
+  const half = String(game?.live?.inning_half || "").toLowerCase();
+  if (half === "bottom") return 3;
+  if (half === "middle") return 2;
+  if (half === "top") return 1;
+  if (half === "end") return 0;
+  return 0;
+}
+
+function mlbLiveProgressScore(game) {
+  const inning = mlbInningNumber(game);
+  const safeInning = Number.isFinite(inning) ? inning : 0;
+  return (safeInning * 10) + mlbLiveHalfRank(game);
+}
+
+function mlbInningNumber(game) {
+  const direct = Number(game?.live?.inning);
+  if (Number.isFinite(direct) && direct > 0) return direct;
+
+  const text = String(game?.live?.inning_text || game?.status || "");
+  const m = text.match(/(\d{1,2})(?:st|nd|rd|th)?/i);
+  if (!m) return 0;
+  const n = Number(m[1]);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function isMlbLateCloseGame(game) {
+  if (String(game?.state || "").toLowerCase() !== "in") return false;
+  const inning = mlbInningNumber(game);
+  if (inning < 7) return false;
+
+  const awayScore = Number(game?.away?.score);
+  const homeScore = Number(game?.home?.score);
+  if (!Number.isFinite(awayScore) || !Number.isFinite(homeScore)) return false;
+
+  return Math.abs(awayScore - homeScore) < 3;
+}
+
+function isMlbRispGame(game) {
+  if (String(game?.state || "").toLowerCase() !== "in") return false;
+  return !!(game?.live?.on_second || game?.live?.on_third);
+}
+
+function teamAbbrForDecision(game, decision) {
+  const teamId = String(decision?.team_id || "");
+  if (!teamId) return "";
+  if (String(game?.away?.id || "") === teamId) return game?.away?.abbr || game?.away?.name || "";
+  if (String(game?.home?.id || "") === teamId) return game?.home?.abbr || game?.home?.name || "";
+  return "";
+}
+
+function formatDecisionLine(game, label, decision) {
+  if (!decision || !decision.name) return "";
+  const teamAbbr = teamAbbrForDecision(game, decision);
+  const rec = decision.record ? ` (${decision.record})` : "";
+  const teamPrefix = teamAbbr ? `${teamAbbr} ` : "";
+  return `${label}: ${teamPrefix}${decision.name}${rec}`;
+}
+
 // MLB cards (reuses .game-card styling)
 function renderMlbCards(games) {
   const board = $("cardBoard");
   if (!board) return;
 
-  const sorted = [...(games || [])].sort((a, b) => String(a.startTime || "").localeCompare(String(b.startTime || "")));
+  const sorted = [...(games || [])].sort((a, b) => {
+    const rankDiff = mlbStateSortRank(a?.state) - mlbStateSortRank(b?.state);
+    if (rankDiff !== 0) return rankDiff;
+
+    if (String(a?.state || "").toLowerCase() === "in" && String(b?.state || "").toLowerCase() === "in") {
+      const aLateClose = isMlbLateCloseGame(a);
+      const bLateClose = isMlbLateCloseGame(b);
+      if (aLateClose !== bLateClose) return aLateClose ? -1 : 1;
+
+      const aRisp = isMlbRispGame(a);
+      const bRisp = isMlbRispGame(b);
+      if (aRisp !== bRisp) return aRisp ? -1 : 1;
+
+      const progressDiff = mlbLiveProgressScore(b) - mlbLiveProgressScore(a);
+      if (progressDiff !== 0) return progressDiff;
+    }
+
+    return String(a?.startTime || "").localeCompare(String(b?.startTime || ""));
+  });
   if (shouldShowDemoLiveCard() && !sorted.some((g) => g.state === "in")) {
     sorted.unshift(demoLiveMlbGame());
   }
@@ -770,15 +1064,25 @@ function renderMlbCards(games) {
     const matchup = document.createElement("div");
     matchup.className = "matchup";
     const href = mlbHrefFromGame(g);
+    const awayToken = buildMlbTeamWithLogo(g.away, "mlb-team-with-logo", "mlb-team-label");
+    const homeToken = buildMlbTeamWithLogo(g.home, "mlb-team-with-logo", "mlb-team-label");
+    const sep = document.createElement("span");
+    sep.className = "mlb-matchup-sep";
+    sep.textContent = " @ ";
+
     if (href) {
       const a = document.createElement("a");
       a.href = href;
       a.target = "_blank";
       a.rel = "noopener noreferrer";
-      a.textContent = `${away} @ ${home}`;
+      a.appendChild(awayToken);
+      a.appendChild(sep);
+      a.appendChild(homeToken);
       matchup.appendChild(a);
     } else {
-      matchup.textContent = `${away} @ ${home}`;
+      matchup.appendChild(awayToken);
+      matchup.appendChild(sep);
+      matchup.appendChild(homeToken);
     }
 
     const status = document.createElement("div");
@@ -794,10 +1098,9 @@ function renderMlbCards(games) {
       main.textContent = `${away} ${g.away.score} – ${home} ${g.home.score}`;
     } else if (g.state === "in") {
       // Live game: show score + inning/status details
-      const awayScore = g.away?.score ?? "—";
-      const homeScore = g.home?.score ?? "—";
-      status.textContent = g.live?.inning_text || g.status || "LIVE";
-      main.textContent = `${away} ${awayScore} – ${home} ${homeScore}`;
+      status.classList.add("mlb-live-status");
+      status.replaceChildren(buildMlbLiveStatusMeta(g, g.live || {}));
+      main.replaceChildren(buildMlbLiveScoreboard(g));
     } else {
       // Upcoming: show local start time if available, but do not display "Scheduled"
       status.textContent = formatLocalTime(g.startTime) || "";
@@ -815,21 +1118,52 @@ function renderMlbCards(games) {
       liveMeta.className = "mlb-live-meta";
 
       const people = document.createElement("div");
-      people.className = "sub";
+      people.className = "mlb-live-people";
       const batterName = live?.batter?.name || "TBA";
       const pitcherName = live?.pitcher?.name || "TBA";
-      people.textContent = `Batting: ${batterName} | Pitching: ${pitcherName}`;
+      const dueUpNames = (Array.isArray(live?.due_up) ? live.due_up : [])
+        .map((p) => p?.name)
+        .filter(Boolean)
+        .slice(0, 3);
+      const dueUpLastNames = dueUpNames.map(lastNameFromFullName).filter(Boolean);
 
-      const countLine = document.createElement("div");
-      countLine.className = "sub";
-      const balls = Number.isFinite(Number(live?.balls)) ? Number(live.balls) : "-";
-      const strikes = Number.isFinite(Number(live?.strikes)) ? Number(live.strikes) : "-";
-      const outs = Number.isFinite(Number(live?.outs)) ? Number(live.outs) : "-";
-      countLine.textContent = `Count: ${balls}-${strikes} | Outs: ${outs}`;
+      if (isBetweenInningsStatus(g.status)) {
+        const betweenInningsDue = dueUpLastNames.length
+          ? dueUpLastNames.join(", ")
+          : (batterName !== "TBA" ? lastNameFromFullName(batterName) : "TBA");
+        const dueLine = document.createElement("div");
+        dueLine.className = "sub mlb-person-line";
+        dueLine.textContent = `Due up: ${betweenInningsDue}`;
+        people.appendChild(dueLine);
+      } else if (dueUpNames.length) {
+        const dueLine = document.createElement("div");
+        dueLine.className = "sub mlb-person-line";
+        dueLine.textContent = `Due up: ${dueUpLastNames.join(", ")}`;
+        people.appendChild(dueLine);
+
+        const batterLine = document.createElement("div");
+        batterLine.className = "sub mlb-person-line";
+        batterLine.textContent = `Batter: ${batterName}`;
+        people.appendChild(batterLine);
+
+        const pitcherLine = document.createElement("div");
+        pitcherLine.className = "sub mlb-person-line";
+        pitcherLine.textContent = `Pitcher: ${pitcherName}`;
+        people.appendChild(pitcherLine);
+      } else {
+        const batterLine = document.createElement("div");
+        batterLine.className = "sub mlb-person-line";
+        batterLine.textContent = `Batter: ${batterName}`;
+        people.appendChild(batterLine);
+
+        const pitcherLine = document.createElement("div");
+        pitcherLine.className = "sub mlb-person-line";
+        pitcherLine.textContent = `Pitcher: ${pitcherName}`;
+        people.appendChild(pitcherLine);
+      }
 
       liveMeta.appendChild(buildBasesGraphic(live));
       liveMeta.appendChild(people);
-      liveMeta.appendChild(countLine);
       card.appendChild(liveMeta);
     }
 
@@ -841,8 +1175,70 @@ function renderMlbCards(games) {
     if ((awayProb || homeProb) && g.state !== "in" && g.state !== "post") {
       const awayLabel = awayProb || "TBA";
       const homeLabel = homeProb || "TBA";
-      probDiv.textContent = `Probables: ${awayLabel} vs ${homeLabel}`;
+
+      const title = document.createElement("div");
+      title.className = "mlb-probables-title";
+      title.textContent = "Probables";
+
+      const awayLine = document.createElement("div");
+      awayLine.className = "mlb-probable-line";
+      const awayTeam = document.createElement("span");
+      awayTeam.className = "mlb-probable-team";
+      awayTeam.textContent = away;
+      const awayPitcher = document.createElement("span");
+      awayPitcher.className = "mlb-probable-pitcher";
+      awayPitcher.textContent = awayLabel;
+      awayLine.appendChild(awayTeam);
+      awayLine.appendChild(awayPitcher);
+
+      const homeLine = document.createElement("div");
+      homeLine.className = "mlb-probable-line";
+      const homeTeam = document.createElement("span");
+      homeTeam.className = "mlb-probable-team";
+      homeTeam.textContent = home;
+      const homePitcher = document.createElement("span");
+      homePitcher.className = "mlb-probable-pitcher";
+      homePitcher.textContent = homeLabel;
+      homeLine.appendChild(homeTeam);
+      homeLine.appendChild(homePitcher);
+
+      probDiv.appendChild(title);
+      probDiv.appendChild(awayLine);
+      probDiv.appendChild(homeLine);
       card.appendChild(probDiv);
+    }
+
+    // Show winning/losing/save pitcher info for final games when available
+    if (g.state === "post" && g.decisions) {
+      const decDiv = document.createElement("div");
+      decDiv.className = "sub mlb-decisions";
+
+      const wLine = formatDecisionLine(g, "W", g.decisions.winning);
+      const lLine = formatDecisionLine(g, "L", g.decisions.losing);
+      const sLine = formatDecisionLine(g, "S", g.decisions.save);
+
+      if (wLine) {
+        const row = document.createElement("div");
+        row.className = "mlb-decision-line";
+        row.textContent = wLine;
+        decDiv.appendChild(row);
+      }
+      if (lLine) {
+        const row = document.createElement("div");
+        row.className = "mlb-decision-line";
+        row.textContent = lLine;
+        decDiv.appendChild(row);
+      }
+      if (sLine) {
+        const row = document.createElement("div");
+        row.className = "mlb-decision-line";
+        row.textContent = sLine;
+        decDiv.appendChild(row);
+      }
+
+      if (decDiv.childElementCount > 0) {
+        card.appendChild(decDiv);
+      }
     }
 
     const footer = document.createElement("div");
@@ -851,6 +1247,7 @@ function renderMlbCards(games) {
     channel.className = "mlb-channel";
     channel.textContent = channelText || "";
     const stateText = document.createElement("span");
+    stateText.className = "mlb-state-text";
     stateText.textContent = g.state === "in" ? "LIVE" : "";
     footer.appendChild(channel);
     footer.appendChild(stateText);
@@ -1037,7 +1434,7 @@ function wireFilters() {
 // =====================================================
 async function fetchEspnUrls(date_espn) {
   try {
-    const resp = await fetch(`/urls/espn?date_espn=${date_espn}`);
+    const resp = await fetchWithTimeout(`/urls/espn?date_espn=${date_espn}`);
     const data = await resp.json();
     return (resp.ok && data.urls_by_event_id) ? data.urls_by_event_id : {};
   } catch {
@@ -1045,9 +1442,19 @@ async function fetchEspnUrls(date_espn) {
   }
 }
 
+async function fetchWithTimeout(url, timeoutMs = 15000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { signal: controller.signal, cache: "no-store" });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 async function fetchGames(date_espn, date_kp) {
   const url = `/games?date_espn=${date_espn}&date_kp=${date_kp}`;
-  const resp = await fetch(url);
+  const resp = await fetchWithTimeout(url);
   let data = {};
   try {
     data = await resp.json();
@@ -1058,7 +1465,7 @@ async function fetchGames(date_espn, date_kp) {
 }
 
 async function fetchMlbGames(date_yyyymmdd) {
-  const resp = await fetch(`/mlb/games?date=${date_yyyymmdd}`);
+  const resp = await fetchWithTimeout(`/mlb/games?date=${date_yyyymmdd}`);
   const data = await resp.json();
   return { resp, data };
 }
@@ -1089,25 +1496,27 @@ async function loadGames(yyyymmdd = null, silent = false) {
   // ---------------------------
   if (state.sport === "mlb") {
     state.urlsByEventId = {};
+    const prevMlbGames = state.mlbGames || [];
 
     let resp, data;
     try {
       ({ resp, data } = await fetchMlbGames(date_espn));
     } catch (e) {
-      showError(`Failed to load MLB games\n${e}`);
+      if (!silent) showError(`Failed to load MLB games\n${e}`);
       return;
     }
 
     if (!resp.ok) {
-      showError(JSON.stringify(data, null, 2));
+      if (!silent) showError(JSON.stringify(data, null, 2));
       return;
     }
 
-    state.mlbGames = data.games || [];
+    state.mlbGames = enrichMlbLiveContext(prevMlbGames, data.games || []);
 
-    // MLB doesn't use your KP-based future mode styling
+    // MLB doesn't use KP future mode styling, but does share polling behavior.
     document.documentElement.classList.remove("future");
-    setPollingMode("off");
+    const hasLive = state.mlbGames.some((g) => isMlbLiveGame(g));
+    setPollingMode(hasLive ? "live" : "idle");
 
     updateCountLine(state.mlbGames.length, state.mlbGames.length);
     renderMlbCards(state.mlbGames);

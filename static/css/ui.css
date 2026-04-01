@@ -176,6 +176,15 @@ html.mlb #clearFilters{
   display: none !important;
 }
 
+/* Mobile CBB: keep selects, hide label text + clear button */
+@media (max-width: 768px) {
+  html:not(.mlb) #thrillGroup > .muted,
+  html:not(.mlb) #confGroup > .muted,
+  html:not(.mlb) #clearFilters {
+    display: none !important;
+  }
+}
+
 /* =====================================================
    ERROR
    ===================================================== */
@@ -307,14 +316,35 @@ html.future td.thrill {
   font-weight: 700;
 }
 
+.mlb-team-with-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mlb-team-logo {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
+.mlb-matchup-sep {
+  color: var(--muted);
+}
+
+.mlb-team-label {
+  line-height: 1;
+}
+
 .matchup a {
   color: #1d4ed8;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration: none;
 }
 
 .matchup a:hover {
   color: #1e40af;
+  text-decoration: none;
 }
 
 .status {
@@ -339,6 +369,152 @@ html.future td.thrill {
   padding-top: 2px;
 }
 
+.mlb-live-status {
+  text-transform: none;
+}
+
+.mlb-live-status-meta {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.mlb-live-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  white-space: nowrap;
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.mlb-live-chip.inning {
+  background: rgba(220, 38, 38, 0.12);
+  color: #b91c1c;
+}
+
+.mlb-live-chip.outs {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.mlb-live-chip.close-game {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #f59e0b;
+}
+
+.mlb-live-chip.risp {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #4ade80;
+}
+
+.mlb-live-board {
+  display: grid;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fff7f7;
+}
+
+.mlb-live-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mlb-live-team-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.mlb-live-team {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.mlb-live-score {
+  font-size: 20px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.mlb-live-people {
+  display: grid;
+  gap: 3px;
+}
+
+.mlb-person-line {
+  line-height: 1.25;
+}
+
+.mlb-probable-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  line-height: 1.3;
+}
+
+.mlb-probables {
+  margin-top: 2px;
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #f9fafb 0%, #ffffff 100%);
+}
+
+.mlb-probables-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+
+.mlb-probable-team {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #1f2937;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 999px;
+  padding: 2px 7px;
+}
+
+.mlb-probable-pitcher {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  text-align: right;
+}
+
+.mlb-decisions {
+  margin-top: 2px;
+  padding-top: 4px;
+  border-top: 1px dashed #d1d5db;
+}
+
+.mlb-decision-line {
+  line-height: 1.3;
+}
+
 .bases {
   display: flex;
   align-items: center;
@@ -346,8 +522,8 @@ html.future td.thrill {
 
 .diamond {
   position: relative;
-  width: 36px;
-  height: 36px;
+  width: 46px;
+  height: 46px;
 }
 
 .diamond::before {
@@ -355,21 +531,22 @@ html.future td.thrill {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
   border: 1px solid #9ca3af;
-  border-radius: 2px;
-  background: #fff;
+  border-radius: 4px;
+  background: linear-gradient(145deg, #ffffff, #f3f4f6);
   transform: translate(-50%, -50%) rotate(45deg);
 }
 
 .base {
   position: absolute;
-  width: 8px;
-  height: 8px;
-  background: #fff;
+  width: 10px;
+  height: 10px;
+  background: #ffffff;
   border: 1px solid #9ca3af;
-  border-radius: 1px;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.6) inset;
 }
 
 .base.first {
@@ -390,9 +567,21 @@ html.future td.thrill {
   transform: translateY(-50%);
 }
 
+.base.plate {
+  width: 7px;
+  height: 7px;
+  left: 50%;
+  bottom: 1px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: #e5e7eb;
+  border-color: #d1d5db;
+}
+
 .base.on {
   background: #f59e0b;
-  border-color: #f59e0b;
+  border-color: #d97706;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25);
 }
 
 .footer {
@@ -518,37 +707,78 @@ html.future .meta-row .network {
 
   #cardBoard {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 6px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
     margin-top: 12px;
   }
 
   .game-card {
-    padding: 8px;
-    border-radius: 12px;
-    gap: 4px;
+    padding: 12px;
+    border-radius: 14px;
+    gap: 8px;
   }
 
   .matchup {
-    font-size: 13px;
-    line-height: 1.1;
+    font-size: 14px;
+    line-height: 1.25;
   }
 
-  .status  { font-size: 10px; }
-  .main    { font-size: 15px; }
+  .status  { font-size: 11px; }
+  .main    { font-size: 18px; }
 
-  .sub     { display: none; }
+  .mlb-live-board {
+    gap: 4px;
+    padding: 4px 6px;
+    border-radius: 8px;
+  }
 
-  .mlb-probables { display: block; }
+  .mlb-live-team {
+    font-size: 12px;
+  }
 
-  .mlb-live-meta .sub { display: block; }
+  .mlb-live-score {
+    font-size: 18px;
+  }
+
+  .diamond {
+    width: 40px;
+    height: 40px;
+  }
+
+  .diamond::before {
+    width: 24px;
+    height: 24px;
+  }
+
+  .mlb-live-chip {
+    font-size: 11px;
+    padding: 2px 7px;
+  }
+
+  .mlb-live-status-meta {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
+  .sub { display: block; }
+
+  .mlb-live-meta {
+    gap: 8px;
+  }
 
   .footer {
-    font-size: 10px;
+    font-size: 11px;
     margin-top: 4px;
   }
 
-  .mlb-channel {
+  .mlb-channel,
+  .mlb-state-text {
     display: none;
+  }
+}
+
+@media (max-width: 340px) {
+  #cardBoard {
+    grid-template-columns: 1fr;
   }
 }

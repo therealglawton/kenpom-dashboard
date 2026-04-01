@@ -1,7 +1,8 @@
 {
   "name": "kenpom-dashboard",
+  "postCreateCommand": "python3 -m venv .venv && .venv/bin/python -m pip install --upgrade pip && .venv/bin/python -m pip install -r requirements.txt",
   "postAttachCommand": {
-    "server": "python -m uvicorn app:app --reload --host 0.0.0.0 --port 8000"
+    "server": ".venv/bin/python -m uvicorn app:app --reload --host 0.0.0.0 --port 8000"
   },
   "forwardPorts": [8000],
   "portsAttributes": {

@@ -29,7 +29,10 @@ UI_PATH = Path(__file__).with_name("ui.html")
 
 @app.get("/ui", response_class=HTMLResponse)
 def ui():
-    return UI_PATH.read_text(encoding="utf-8")
+    return HTMLResponse(
+        content=UI_PATH.read_text(encoding="utf-8"),
+        headers={"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"},
+    )
 
 # ---- UI contract endpoints ----
 
