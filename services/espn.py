@@ -3,12 +3,23 @@ import requests
 from fastapi import HTTPException
 from normalize import matchup_key
 
-ESPN_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard"
+ESPN_SCOREBOARD_URLS = {
+    "cbb": "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard",
+    "cfb": "https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard",
+    "nfl": "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard",
+}
 
-def fetch_scoreboard(date_espn: str) -> dict:
-    params = {"dates": date_espn, "groups": 50, "limit": 500}
+def _scoreboard_url_for_sport(sport: str) -> str:
+    return ESPN_SCOREBOARD_URLS.get(sport, ESPN_SCOREBOARD_URLS["cbb"])
+
+def fetch_scoreboard(date_espn: str, sport: str = "cbb") -> dict:
+    url = _scoreboard_url_for_sport(sport)
+    params = {"dates": date_espn, "limit": 500}
+    if sport == "cbb":
+        # ESPN group 50 is Men\'s D-I basketball; keep this for CBB only.
+        params["groups"] = 50
     try:
-        r = requests.get(ESPN_SCOREBOARD_URL, params=params, timeout=15)
+        r = requests.get(url, params=params, timeout=15)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"ESPN request failed: {type(e).__name__}: {e}")
 
@@ -64,10 +75,19 @@ def parse_games(scoreboard_json: dict) -> list[dict]:
         away_conf = {"id": "", "name": "", "short": ""}
         home_team_id = ""
         away_team_id = ""
+        home_logo = ""
+        away_logo = ""
 
         for c in comp.get("competitors", []) or []:
             team = (c.get("team") or {})
             name = team.get("shortDisplayName") or team.get("displayName") or team.get("name")
+            logo = team.get("logo") or ""
+            if not logo:
+                logos = team.get("logos") or []
+                if isinstance(logos, list) and logos:
+                    first_logo = logos[0] or {}
+                    if isinstance(first_logo, dict):
+                        logo = first_logo.get("href") or ""
 
             # team ids are useful later (mapping, logos, etc.)
             tid = team.get("id")
@@ -84,15 +104,25 @@ def parse_games(scoreboard_json: dict) -> list[dict]:
             if c.get("homeAway") == "home":
                 home = name
                 home_team_id = tid
+                home_logo = logo
                 home_score = score
                 home_conf = conf
             elif c.get("homeAway") == "away":
                 away = name
                 away_team_id = tid
+                away_logo = logo
                 away_score = score
                 away_conf = conf
 
         start_utc = comp.get("startDate") or comp.get("date") or ev.get("date")
+        status = (comp.get("status") or {})
+        stype = (status.get("type") or {})
+        status_detail = stype.get("shortDetail") or ""
+
+        # Some ESPN APIs set schedule time to midnight on unknown/hard-to-schedule slots.
+        # Treat this as indefinite TBA to avoid showing 12:00 AM.
+        if isinstance(start_utc, str) and start_utc.endswith("T00:00:00Z") and (not status_detail or status_detail.strip().lower() in ["tba", "scheduled"]):
+            start_utc = None
 
         # network best-effort
         network = ""
@@ -109,9 +139,10 @@ def parse_games(scoreboard_json: dict) -> list[dict]:
                 media = (geo[0].get("media") or {})
                 network = media.get("shortName") or ""
 
-        # status fields (UI uses these for live/final display)
-        status = (comp.get("status") or {})
-        stype = (status.get("type") or {})
+        is_tba = isinstance(status_detail, str) and status_detail.strip().lower() == "tba"
+
+        if is_tba:
+            start_utc = None
 
         games.append({
             "event_id": ev.get("id"),
@@ -120,6 +151,8 @@ def parse_games(scoreboard_json: dict) -> list[dict]:
             "home": home,
             "away_team_id": away_team_id,
             "home_team_id": home_team_id,
+            "away_logo": away_logo,
+            "home_logo": home_logo,
 
             # ✅ conference info added here
             "away_conf": away_conf,   # {id, name, short}
@@ -139,17 +172,21 @@ def parse_games(scoreboard_json: dict) -> list[dict]:
 
     return games
 
-def espn_game_url(event_id: str | None) -> str:
+def espn_game_url(event_id: str | None, sport: str = "cbb") -> str:
     if not event_id:
         return ""
+    if sport == "cfb":
+        return f"https://www.espn.com/college-football/game?gameId={event_id}"
+    if sport == "nfl":
+        return f"https://www.espn.com/nfl/game?gameId={event_id}"
     return f"https://www.espn.com/mens-college-basketball/game?gameId={event_id}"
 
-def urls_by_event_id(date_espn: str) -> dict[str, str]:
-    data = fetch_scoreboard(date_espn)
+def urls_by_event_id(date_espn: str, sport: str = "cbb") -> dict[str, str]:
+    data = fetch_scoreboard(date_espn, sport)
     out: dict[str, str] = {}
     for ev in (data.get("events") or []):
         event_id = ev.get("id")
         if event_id:
             sid = str(event_id)
-            out[sid] = espn_game_url(sid)
+            out[sid] = espn_game_url(sid, sport)
     return out

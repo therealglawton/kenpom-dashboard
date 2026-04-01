@@ -37,17 +37,22 @@ def ui():
 # ---- UI contract endpoints ----
 
 @app.get("/urls/espn")
-def urls_espn(date_espn: str | None = Query(default=None)):
+def urls_espn(date_espn: str | None = Query(default=None), sport: str | None = Query(default="cbb")):
     date_espn = date_espn or today_yyyymmdd_eastern()
-    m = urls_by_event_id(date_espn)
+    sport = (sport or "cbb").lower()
+    m = urls_by_event_id(date_espn, sport)
     # Keep extra fields if you want; UI ignores them.
-    return {"date_espn": date_espn, "count": len(m), "urls_by_event_id": m}
+    return {"date_espn": date_espn, "sport": sport, "count": len(m), "urls_by_event_id": m}
 
 @app.get("/games")
-def games(date_espn: str | None = Query(default=None), date_kp: str | None = Query(default=None)):
+def games(
+    date_espn: str | None = Query(default=None),
+    date_kp: str | None = Query(default=None),
+    sport: str | None = Query(default="cbb"),
+):
     date_espn = date_espn or today_yyyymmdd_eastern()
     date_kp = date_kp or date_espn
-    return build_games_for_date(date_espn, date_kp)
+    return build_games_for_date(date_espn, date_kp, sport.lower() if sport else "cbb")
 
 # Optional: mount debug routes only when DEBUG=1
 import os

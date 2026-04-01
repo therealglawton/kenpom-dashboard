@@ -85,8 +85,8 @@ def _attach_conf_fields(out_game: dict, e: dict) -> dict:
 # ----------------------------
 # Builders
 # ----------------------------
-def espn_only_games(date_espn: str) -> dict:
-    espn_games = parse_games(fetch_scoreboard(date_espn))
+def espn_only_games(date_espn: str, sport: str = "cbb") -> dict:
+    espn_games = parse_games(fetch_scoreboard(date_espn, sport))
     games = []
     for e in espn_games:
         g = {
@@ -94,6 +94,8 @@ def espn_only_games(date_espn: str) -> dict:
             "event_id": e.get("event_id"),
             "away": e.get("away"),
             "home": e.get("home"),
+            "away_logo": e.get("away_logo"),
+            "home_logo": e.get("home_logo"),
             "start_utc": e.get("start_utc"),
             "network": e.get("network"),
 
@@ -130,8 +132,8 @@ def espn_only_games(date_espn: str) -> dict:
     }
 
 
-def merge_strict(date_espn: str, date_kp: str) -> dict:
-    espn_games = parse_games(fetch_scoreboard(date_espn))
+def merge_strict(date_espn: str, date_kp: str, sport: str = "cbb") -> dict:
+    espn_games = parse_games(fetch_scoreboard(date_espn, sport))
     kp_rows = fetch_fanmatch(date_kp)
     kp_by_key = _kp_by_key(kp_rows)
 
@@ -148,6 +150,8 @@ def merge_strict(date_espn: str, date_kp: str) -> dict:
             "event_id": e["event_id"],
             "away": e["away"],
             "home": e["home"],
+            "away_logo": e.get("away_logo"),
+            "home_logo": e.get("home_logo"),
             "start_utc": e["start_utc"],
             "network": e["network"],
 
@@ -185,8 +189,8 @@ def merge_strict(date_espn: str, date_kp: str) -> dict:
     return {"date_espn": date_espn, "date_kp": kp_date(date_kp), "count": len(merged), "games": merged}
 
 
-def merge_lenient(date_espn: str, date_kp: str) -> dict:
-    espn_games = parse_games(fetch_scoreboard(date_espn))
+def merge_lenient(date_espn: str, date_kp: str, sport: str = "cbb") -> dict:
+    espn_games = parse_games(fetch_scoreboard(date_espn, sport))
     kp_rows = fetch_fanmatch(date_kp)
     kp_by_key = _kp_by_key(kp_rows)
 
@@ -199,6 +203,8 @@ def merge_lenient(date_espn: str, date_kp: str) -> dict:
             "event_id": e["event_id"],
             "away": e["away"],
             "home": e["home"],
+            "away_logo": e.get("away_logo"),
+            "home_logo": e.get("home_logo"),
             "start_utc": e["start_utc"],
             "network": e["network"],
 
@@ -226,20 +232,24 @@ def merge_lenient(date_espn: str, date_kp: str) -> dict:
     return {"date_espn": date_espn, "date_kp": kp_date(date_kp), "count": len(merged), "games": merged}
 
 
-def build_games_for_date(date_espn: str, date_kp: str) -> dict:
+def build_games_for_date(date_espn: str, date_kp: str, sport: str = "cbb") -> dict:
+    # For CFB and NFL we only use ESPN scoreboard data (no KenPom merge exists)
+    if sport in ("cfb", "nfl"):
+        return espn_only_games(date_espn, sport)
+
     if is_future_yyyymmdd_eastern(date_espn):
-        return espn_only_games(date_espn)
+        return espn_only_games(date_espn, sport)
 
     # strict then fallback to lenient (same as your current behavior)
     try:
-        return merge_strict(date_espn, date_kp)
+        return merge_strict(date_espn, date_kp, sport)
     except HTTPException as e:
         detail = e.detail if isinstance(e.detail, dict) else {"error": str(e.detail)}
         if detail.get("error") != "Merge missing KenPom for some ESPN games":
             raise
 
         try:
-            lenient = merge_lenient(date_espn, date_kp)
+            lenient = merge_lenient(date_espn, date_kp, sport)
         except HTTPException as e2:
             detail2 = e2.detail if isinstance(e2.detail, dict) else {"error": str(e2.detail)}
             return {

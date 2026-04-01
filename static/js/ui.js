@@ -14,9 +14,12 @@ const mlbLogoTemplateCache = new Map();
 // ---------------------
 // App state (single source of truth)
 // ---------------------
+const STORAGE_KEY_SPORT = "sportsSlate_sport";
+const STORAGE_KEY_DATE = "sportsSlate_date";
+
 const state = {
-  sport: "mlb",         // "cbb" | "mlb"
-  games: [],            // CBB games
+  sport: "mlb",         // "cbb" | "mlb" | "nfl" | "cfb"
+  games: [],            // CBB/CFB/NFL games
   mlbGames: [],         // MLB games
   urlsByEventId: {},
 
@@ -44,27 +47,77 @@ const state = {
 // =====================================================
 // Tabs (CBB / MLB)
 // =====================================================
+function persistSport(sport) {
+  try {
+    localStorage.setItem(STORAGE_KEY_SPORT, sport);
+  } catch {
+    // ignore if not available
+  }
+}
+
+function persistDate(yyyymmdd) {
+  try {
+    localStorage.setItem(STORAGE_KEY_DATE, yyyymmdd);
+  } catch {
+    // ignore if not available
+  }
+}
+
+function getPersistedSport() {
+  try {
+    return localStorage.getItem(STORAGE_KEY_SPORT) || null;
+  } catch {
+    return null;
+  }
+}
+
+function getPersistedDate() {
+  try {
+    return localStorage.getItem(STORAGE_KEY_DATE) || null;
+  } catch {
+    return null;
+  }
+}
+
 function setSport(sport) {
   state.sport = sport;
+  persistSport(sport);
   document.documentElement.classList.toggle("mlb", sport === "mlb");
+  document.documentElement.classList.toggle("nfl", sport === "nfl");
+  document.documentElement.classList.toggle("cfb", sport === "cfb");
 
   const tabCbb = $("tabCbb");
   const tabMlb = $("tabMlb");
+  const tabNfl = $("tabNfl");
+  const tabCfb = $("tabCfb");
   const isCbb = sport === "cbb";
 
-  if (tabCbb && tabMlb) {
-    tabCbb.classList.toggle("active", isCbb);
-    tabMlb.classList.toggle("active", !isCbb);
-    tabCbb.setAttribute("aria-selected", String(isCbb));
-    tabMlb.setAttribute("aria-selected", String(!isCbb));
+  if (tabCbb) {
+    tabCbb.classList.toggle("active", sport === "cbb");
+    tabCbb.setAttribute("aria-selected", String(sport === "cbb"));
+  }
+  if (tabMlb) {
+    tabMlb.classList.toggle("active", sport === "mlb");
+    tabMlb.setAttribute("aria-selected", String(sport === "mlb"));
+  }
+  if (tabNfl) {
+    tabNfl.classList.toggle("active", sport === "nfl");
+    tabNfl.setAttribute("aria-selected", String(sport === "nfl"));
+  }
+  if (tabCfb) {
+    tabCfb.classList.toggle("active", sport === "cfb");
+    tabCfb.setAttribute("aria-selected", String(sport === "cfb"));
   }
 
-  // Disable CBB-only controls in MLB mode (prevents weird filtering/UI surprises)
-  const cbbOnlyIds = ["minThrill", "confFilter", "clearFilters"];
-  cbbOnlyIds.forEach((id) => {
-    const el = $(id);
-    if (el) el.disabled = !isCbb;
-  });
+  // Control availability by sport
+  const minThrillEl = $("minThrill");
+  if (minThrillEl) minThrillEl.disabled = !isCbb;
+
+  const confFilterEl = $("confFilter");
+  if (confFilterEl) confFilterEl.disabled = !(sport === "cbb" || sport === "cfb");
+
+  const clearFiltersEl = $("clearFilters");
+  if (clearFiltersEl) clearFiltersEl.disabled = !(sport === "cbb" || sport === "cfb");
 
   // Stop active polling while switching sports; loadGames will set mode.
   setPollingMode("off");
@@ -73,8 +126,10 @@ function setSport(sport) {
 }
 
 function wireTabs() {
-  $("tabCbb")?.addEventListener("click", () => setSport("cbb"));
   $("tabMlb")?.addEventListener("click", () => setSport("mlb"));
+  $("tabNfl")?.addEventListener("click", () => setSport("nfl"));
+  $("tabCfb")?.addEventListener("click", () => setSport("cfb"));
+  $("tabCbb")?.addEventListener("click", () => setSport("cbb"));
 }
 
 // =====================================================
@@ -83,6 +138,13 @@ function wireTabs() {
 // IMPORTANT: backend returns g.away_conf / g.home_conf as objects: {id, name, short}
 
 const HI_MAJOR_SHORTS = new Set(["ACC", "Big 12", "Big East", "Big Ten", "SEC"]);
+const CFB_POWER4_CONF_IDS = new Set(["1", "4", "5", "8"]); // ACC, Big 12, Big Ten, SEC
+const CFB_CONF_FILTER_ID = {
+  acc: "1",
+  big12: "4",
+  bigten: "5",
+  sec: "8",
+};
 
 function confShort(g, side) {
   const c = side === "home" ? g.home_conf : g.away_conf;
@@ -116,6 +178,24 @@ function gameInConferenceId(g, confIdWanted) {
   const hid = confId(g, "home");
   const aid = confId(g, "away");
   return (hid && hid === confIdWanted) || (aid && aid === confIdWanted);
+}
+
+function gameIsCfbPower4OrNotreDame(g) {
+  const homeConfId = confId(g, "home");
+  const awayConfId = confId(g, "away");
+  if (CFB_POWER4_CONF_IDS.has(homeConfId) || CFB_POWER4_CONF_IDS.has(awayConfId)) {
+    return true;
+  }
+
+  const homeName = String(g.home || "").toLowerCase();
+  const awayName = String(g.away || "").toLowerCase();
+  return homeName.includes("notre dame") || awayName.includes("notre dame");
+}
+
+function gameIsCfbConference(g, confIdWanted) {
+  const homeConfId = confId(g, "home");
+  const awayConfId = confId(g, "away");
+  return homeConfId === confIdWanted || awayConfId === confIdWanted;
 }
 
 // =====================================================
@@ -315,6 +395,90 @@ function fmtPred(g) {
   return `${String(g.away)} ${String(g.kp_away_pred)}-${String(g.kp_home_pred)} (${fmtPct(awayWP, 0)})`;
 }
 
+function fmtFinalScoreWithTeams(g) {
+  const awayTeam = String(g.away || "Away");
+  const homeTeam = String(g.home || "Home");
+  const awayScore = g.away_score;
+  const homeScore = g.home_score;
+
+  if (awayScore != null && homeScore != null) {
+    return `${awayTeam} ${awayScore} - ${homeTeam} ${homeScore}`;
+  }
+
+  return g.score || fmtPred(g) || "Final";
+}
+
+function buildCfbTeamWithLogo(teamName, logoUrl) {
+  const wrap = document.createElement("span");
+  wrap.className = "cfb-team-with-logo";
+
+  const logo = String(logoUrl || "").trim();
+  if (logo) {
+    const img = document.createElement("img");
+    img.className = "cfb-team-logo";
+    img.src = logo;
+    img.alt = teamName ? `${teamName} logo` : "Team logo";
+    img.loading = "lazy";
+    img.decoding = "async";
+    wrap.appendChild(img);
+  }
+
+  const txt = document.createElement("span");
+  txt.className = "cfb-team-label";
+  txt.textContent = teamName || "—";
+  wrap.appendChild(txt);
+
+  return wrap;
+}
+
+function buildCfbMatchupBlock(g) {
+  const container = document.createElement("div");
+  container.className = "cfb-matchup-block";
+
+  const awayRow = document.createElement("div");
+  awayRow.className = "cfb-matchup-row";
+  awayRow.appendChild(buildCfbTeamWithLogo(g.away, g.away_logo));
+
+  const homeRow = document.createElement("div");
+  homeRow.className = "cfb-matchup-row";
+  homeRow.appendChild(buildCfbTeamWithLogo(g.home, g.home_logo));
+
+  container.appendChild(awayRow);
+  container.appendChild(homeRow);
+  return container;
+}
+
+function buildCbbFinalScoreboard(g) {
+  const board = document.createElement("div");
+  board.className = "cbb-final-board";
+
+  const awayRow = document.createElement("div");
+  awayRow.className = "cbb-final-row";
+  const awayLabel = document.createElement("div");
+  awayLabel.className = "cbb-final-team";
+  awayLabel.textContent = `${g.away || "Away"}`;
+  const awayScore = document.createElement("strong");
+  awayScore.className = "cbb-final-score";
+  awayScore.textContent = String(g.away_score ?? "—");
+  awayRow.appendChild(awayLabel);
+  awayRow.appendChild(awayScore);
+
+  const homeRow = document.createElement("div");
+  homeRow.className = "cbb-final-row";
+  const homeLabel = document.createElement("div");
+  homeLabel.className = "cbb-final-team";
+  homeLabel.textContent = `${g.home || "Home"}`;
+  const homeScore = document.createElement("strong");
+  homeScore.className = "cbb-final-score";
+  homeScore.textContent = String(g.home_score ?? "—");
+  homeRow.appendChild(homeLabel);
+  homeRow.appendChild(homeScore);
+
+  board.appendChild(awayRow);
+  board.appendChild(homeRow);
+  return board;
+}
+
 // =====================================================
 // Live-first sorting helpers
 // =====================================================
@@ -488,16 +652,31 @@ function renderTable(games) {
 
     const eventId = String(g.event_id || "");
     const href = state.urlsByEventId[eventId] || "";
+    const hasTeamLogos = !!(g.away_logo || g.home_logo);
 
-    if (href) {
-      const a = document.createElement("a");
-      a.href = href;
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      a.textContent = `${g.away} @ ${g.home}`;
-      matchup.appendChild(a);
+    if (state.sport === "cfb" && hasTeamLogos) {
+      const matchupBlock = buildCfbMatchupBlock(g);
+      if (href) {
+        const a = document.createElement("a");
+        a.href = href;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.appendChild(matchupBlock);
+        matchup.appendChild(a);
+      } else {
+        matchup.appendChild(matchupBlock);
+      }
     } else {
-      matchup.textContent = `${g.away} @ ${g.home}`;
+      if (href) {
+        const a = document.createElement("a");
+        a.href = href;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.textContent = `${g.away} @ ${g.home}`;
+        matchup.appendChild(a);
+      } else {
+        matchup.textContent = `${g.away} @ ${g.home}`;
+      }
     }
     tr.appendChild(matchup);
 
@@ -562,7 +741,7 @@ function renderCards(games) {
     if (g.status === "final") {
       stateCls = "final";
       statusText = "Final";
-      mainText = g.score || "Final";
+      mainText = fmtFinalScoreWithTeams(g);
     } else if (g.status === "live") {
       stateCls = "live";
       statusText = "LIVE";
@@ -570,7 +749,7 @@ function renderCards(games) {
     } else if (String(g.status_state || "").toLowerCase() === "post") {
       stateCls = "final";
       statusText = "Final";
-      mainText = g.score || fmtPred(g);
+      mainText = fmtFinalScoreWithTeams(g);
     } else if (String(g.status_state || "").toLowerCase() === "in") {
       stateCls = "live";
       statusText = "LIVE";
@@ -585,16 +764,31 @@ function renderCards(games) {
 
     const eventId = String(g.event_id || "");
     const href = state.urlsByEventId[eventId] || "";
+    const hasTeamLogos = !!(g.away_logo || g.home_logo);
 
-    if (href) {
-      const a = document.createElement("a");
-      a.href = href;
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      a.textContent = `${g.away} @ ${g.home}`;
-      matchup.appendChild(a);
+    if (state.sport === "cfb" && hasTeamLogos) {
+      const matchupBlock = buildCfbMatchupBlock(g);
+      if (href) {
+        const a = document.createElement("a");
+        a.href = href;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.appendChild(matchupBlock);
+        matchup.appendChild(a);
+      } else {
+        matchup.appendChild(matchupBlock);
+      }
     } else {
-      matchup.textContent = `${g.away} @ ${g.home}`;
+      if (href) {
+        const a = document.createElement("a");
+        a.href = href;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.textContent = `${g.away} @ ${g.home}`;
+        matchup.appendChild(a);
+      } else {
+        matchup.textContent = `${g.away} @ ${g.home}`;
+      }
     }
 
     // FUTURE MODE: schedule tiles only (no KP/thrill/score text)
@@ -610,7 +804,12 @@ function renderCards(games) {
 
       const time = document.createElement("span");
       time.className = "time";
-      time.textContent = formatLocalTime(g.start_utc);
+      const statusDetail = String(g.status_detail || "").toLowerCase();
+      if (statusDetail.includes("tba") || !g.start_utc) {
+        time.textContent = "TBA";
+      } else {
+        time.textContent = formatLocalTime(g.start_utc) || "TBA";
+      }
 
       const network = document.createElement("span");
       network.className = "network";
@@ -661,8 +860,14 @@ function renderCards(games) {
     footer.appendChild(thrill);
     footer.appendChild(network);
 
-    card.appendChild(matchup);
+    if (stateCls !== "final") {
+      card.appendChild(matchup);
+    }
     card.appendChild(status);
+
+    if (stateCls === "final") {
+      main.replaceChildren(buildCbbFinalScoreboard(g));
+    }
     card.appendChild(main);
 
     // Show probable starting pitchers for upcoming games when available
@@ -1093,9 +1298,9 @@ function renderMlbCards(games) {
     const channelText = channelTextFromGame(g);
 
     if (g.state === "post" && g.away?.score != null && g.home?.score != null) {
-      // Finished game: show final + score
+      // Finished game: show final + scoreboard (logos in line)
       status.textContent = "Final";
-      main.textContent = `${away} ${g.away.score} – ${home} ${g.home.score}`;
+      main.replaceChildren(buildMlbLiveScoreboard(g));
     } else if (g.state === "in") {
       // Live game: show score + inning/status details
       status.classList.add("mlb-live-status");
@@ -1107,7 +1312,9 @@ function renderMlbCards(games) {
       main.textContent = "";
     }
 
-    card.appendChild(matchup);
+    if (g.state !== "post") {
+      card.appendChild(matchup);
+    }
     card.appendChild(status);
     card.appendChild(main);
 
@@ -1272,6 +1479,26 @@ function buildConferenceOptions() {
 
   const prev = state.filters.confChoice || "";
 
+  if (state.sport === "cfb") {
+    sel.innerHTML = "";
+    sel.appendChild(new Option("All games", ""));
+    sel.appendChild(new Option("Power 4", "p4"));
+    sel.appendChild(new Option("ACC", "p4:acc"));
+    sel.appendChild(new Option("Big Ten", "p4:bigten"));
+    sel.appendChild(new Option("Big 12", "p4:big12"));
+    sel.appendChild(new Option("SEC", "p4:sec"));
+    sel.appendChild(new Option("Non Power 4", "nonp4"));
+
+    const allowedValues = new Set(Array.from(sel.options).map((o) => o.value));
+    if (prev && allowedValues.has(prev)) {
+      sel.value = prev;
+    } else {
+      sel.value = "";
+      state.filters.confChoice = "";
+    }
+    return;
+  }
+
   // Collect conferences that appear today
   const idToLabel = new Map(); // id -> label (short preferred)
   for (const g of state.games) {
@@ -1339,7 +1566,15 @@ function applyFilters(games) {
 
     // Conf filter
     if (confChoice) {
-      if (confChoice === "hi") {
+      if (confChoice === "p4") {
+        if (!gameIsCfbPower4OrNotreDame(g)) return false;
+      } else if (confChoice === "nonp4") {
+        if (gameIsCfbPower4OrNotreDame(g)) return false;
+      } else if (confChoice.startsWith("p4:")) {
+        const leagueKey = confChoice.slice(3);
+        const confIdWanted = CFB_CONF_FILTER_ID[leagueKey];
+        if (!confIdWanted || !gameIsCfbConference(g, confIdWanted)) return false;
+      } else if (confChoice === "hi") {
         if (!gameIsHighMajor(g)) return false;
       } else if (confChoice === "mid") {
         if (!gameIsMidMajor(g)) return false;
@@ -1415,26 +1650,41 @@ function wireFilters() {
 
   $("datePicker")?.addEventListener("change", (e) => {
     const yyyymmdd = yyyymmddFromDateInput(e.target.value);
+    persistDate(e.target.value);
     loadGames(yyyymmdd);
   });
 
   $("prevDayBtn")?.addEventListener("click", () => {
     const cur = yyyymmddFromDateInput($("datePicker")?.value || "");
-    loadGames(addDaysToYYYYMMDD(cur, -1));
+    const nextDate = addDaysToYYYYMMDD(cur, -1);
+    persistDate(isoFromYYYYMMDD(nextDate));
+    loadGames(nextDate);
   });
 
   $("nextDayBtn")?.addEventListener("click", () => {
     const cur = yyyymmddFromDateInput($("datePicker")?.value || "");
-    loadGames(addDaysToYYYYMMDD(cur, 1));
+    const nextDate = addDaysToYYYYMMDD(cur, 1);
+    persistDate(isoFromYYYYMMDD(nextDate));
+    loadGames(nextDate);
+  });
+
+  $("todayBtn")?.addEventListener("click", () => {
+    const { yyyy, mm, dd } = todayParts();
+    const today = `${yyyy}${mm}${dd}`;
+    if ($("datePicker")) {
+      $("datePicker").value = `${yyyy}-${mm}-${dd}`;
+    }
+    persistDate(`${yyyy}-${mm}-${dd}`);
+    loadGames(today);
   });
 }
 
 // =====================================================
 // Fetch helpers
 // =====================================================
-async function fetchEspnUrls(date_espn) {
+async function fetchEspnUrls(date_espn, sport = "cbb") {
   try {
-    const resp = await fetchWithTimeout(`/urls/espn?date_espn=${date_espn}`);
+    const resp = await fetchWithTimeout(`/urls/espn?date_espn=${date_espn}&sport=${encodeURIComponent(sport)}`);
     const data = await resp.json();
     return (resp.ok && data.urls_by_event_id) ? data.urls_by_event_id : {};
   } catch {
@@ -1452,8 +1702,8 @@ async function fetchWithTimeout(url, timeoutMs = 15000) {
   }
 }
 
-async function fetchGames(date_espn, date_kp) {
-  const url = `/games?date_espn=${date_espn}&date_kp=${date_kp}`;
+async function fetchGames(date_espn, date_kp, sport = "cbb") {
+  const url = `/games?date_espn=${date_espn}&date_kp=${date_kp}&sport=${encodeURIComponent(sport)}`;
   const resp = await fetchWithTimeout(url);
   let data = {};
   try {
@@ -1478,13 +1728,21 @@ async function loadGames(yyyymmdd = null, silent = false) {
   if (!silent) clearTableForFullLoad();
 
   if (!yyyymmdd) {
-    const pickerVal = $("datePicker")?.value || "";
+    let pickerVal = $("datePicker")?.value || "";
+    if (!pickerVal) {
+      pickerVal = getPersistedDate() || "";
+      if (pickerVal && $("datePicker")) $("datePicker").value = pickerVal;
+    }
     yyyymmdd = pickerVal ? yyyymmddFromDateInput(pickerVal) : null;
   }
   if (!yyyymmdd) {
     const { yyyy, mm, dd } = todayParts();
     yyyymmdd = `${yyyy}${mm}${dd}`;
+    if ($("datePicker")) {
+      $("datePicker").value = `${yyyy}-${mm}-${dd}`;
+    }
   }
+  persistDate(isoFromYYYYMMDD(yyyymmdd));
 
   const date_kp = isoFromYYYYMMDD(yyyymmdd);
   const date_espn = yyyymmdd;
@@ -1525,7 +1783,46 @@ async function loadGames(yyyymmdd = null, silent = false) {
   }
 
   // ---------------------------
-  // CBB (existing behavior)
+  // CBB/CFB/NFL (ESPN behavior)
+  // ---------------------------
+  if (state.sport === "cbb" || state.sport === "cfb" || state.sport === "nfl") {
+    // URLs for external deep-links via ESPN as available.
+    state.urlsByEventId = await fetchEspnUrls(date_espn, state.sport);
+
+    let resp, data;
+    try {
+      ({ resp, data } = await fetchGames(date_espn, date_kp, state.sport));
+    } catch (e) {
+      showError(`Failed to load ${state.sport.toUpperCase()} games\n${e}`);
+      return;
+    }
+
+    if (!resp.ok) {
+      showError(JSON.stringify(data, null, 2));
+      return;
+    }
+
+    state.games = Array.isArray(data.games) ? data.games : [];
+
+    // Future date mode (drives future-day rendering + CSS)
+    const isFuture = data.mode === "future";
+    document.documentElement.classList.toggle("future", isFuture);
+
+    const hasLive = state.games.some((g) => String(g.status_state || "").toLowerCase() === "in" || g.status === "live");
+    const isToday = ($("datePicker")?.value || "") === todayIsoLocal();
+    setPollingMode(!isFuture && isToday ? (hasLive ? "live" : "idle") : "off");
+
+    if (state.sport === "cbb" || state.sport === "cfb") {
+      buildConferenceOptions();
+    }
+
+    applySortAndRender();
+    setLastUpdatedNow();
+    return;
+  }
+
+  // ---------------------------
+  // Fallback: treat as CBB
   // ---------------------------
   state.urlsByEventId = await fetchEspnUrls(date_espn);
 
@@ -1564,7 +1861,39 @@ function boot() {
   wireTabs();
   wireSorting();
   wireFilters();
-  setSport(state.sport);
+
+  const isExistingTab = sessionStorage.getItem("sportsSlate_session_init") === "true";
+  if (!isExistingTab) {
+    sessionStorage.setItem("sportsSlate_session_init", "true");
+  }
+
+  let initialSport = "mlb";
+  let initialDate = "";
+
+  if (isExistingTab) {
+    const persistedSport = getPersistedSport();
+    if (persistedSport && ["mlb", "cbb", "nfl", "cfb"].includes(persistedSport)) {
+      initialSport = persistedSport;
+    }
+
+    const persistedDate = getPersistedDate();
+    if (persistedDate && $("datePicker")) {
+      initialDate = persistedDate;
+      $("datePicker").value = persistedDate;
+    }
+  } else {
+    // New tab: force current MLB today (don't use persisted values from other tabs)
+    initialSport = "mlb";
+    const { yyyy, mm, dd } = todayParts();
+    initialDate = `${yyyy}-${mm}-${dd}`;
+    if ($("datePicker")) {
+      $("datePicker").value = initialDate;
+    }
+    persistDate(initialDate);
+  }
+
+  state.sport = initialSport;
+  setSport(initialSport);
 }
 
 boot();
