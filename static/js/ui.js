@@ -2089,7 +2089,7 @@ function boot() {
 
   if (isExistingTab) {
     const persistedSport = getPersistedSport();
-    if (persistedSport && ["mlb", "cbb", "nfl", "cfb"].includes(persistedSport)) {
+    if (persistedSport && ["mlb", "cbb", "nfl", "cfb", "pga"].includes(persistedSport)) {
       initialSport = persistedSport;
     }
 

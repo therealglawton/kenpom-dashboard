@@ -61,6 +61,18 @@ def ui():
         f'src="/static/js/ui.js?v={APP_VERSION}',
         html_content
     )
+
+    # Replace PGA asset URLs as well so mobile clients don't keep stale leaderboard code
+    html_content = re.sub(
+        r'href="/static/css/pga_dev\.css(\?v=[^"]*)?',
+        f'href="/static/css/pga_dev.css?v={APP_VERSION}',
+        html_content,
+    )
+    html_content = re.sub(
+        r'src="/static/js/pga_dev\.js(\?v=[^"]*)?',
+        f'src="/static/js/pga_dev.js?v={APP_VERSION}',
+        html_content,
+    )
     
     # Replace meta tag version attribute
     html_content = html_content.replace(
