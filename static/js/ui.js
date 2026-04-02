@@ -208,11 +208,28 @@ function clearError() {
   el.textContent = "";
 }
 
+function formatErrorMessage(error) {
+  const errStr = String(error ?? "").toLowerCase();
+  
+  // Network/connectivity errors
+  if (errStr.includes("load failed") || errStr.includes("network") || errStr.includes("offline")) {
+    return "Unable to load games — check your internet connection and try again.";
+  }
+  if (errStr.includes("failed to fetch") || errStr.includes("typeerror") || errStr.includes("fetch")) {
+    return "Unable to connect to the server — please check your connection.";
+  }
+  if (errStr.includes("timeout")) {
+    return "Request timed out — please try again.";
+  }
+  
+  return String(error ?? "An error occurred. Please try again.");
+}
+
 function showError(text) {
   const el = $("error");
   if (!el) return;
   el.style.display = "block";
-  el.textContent = String(text ?? "");
+  el.textContent = formatErrorMessage(text);
 }
 
 function clearTableForFullLoad() {
@@ -722,7 +739,13 @@ function renderCards(games) {
   board.innerHTML = "";
 
   if (!games.length) {
-    board.innerHTML = `<div class="muted">No CBB games for this date.</div>`;
+    const sportLabel = {
+      cbb: "CBB",
+      cfb: "CFB",
+      nfl: "NFL",
+      mlb: "MLB",
+    }[state.sport] || "CBB";
+    board.innerHTML = `<div class="muted">No ${sportLabel} games for this date.</div>`;
     board.style.display = "block";
     const tbl = $("tbl");
     if (tbl) tbl.style.display = "none";
@@ -793,23 +816,86 @@ function renderCards(games) {
 
     // FUTURE MODE: schedule tiles only (no KP/thrill/score text)
     if (futureMode) {
-      // Optional "Upcoming" badge (matches your accent-style mock)
+      const statusDetail = String(g.status_detail || "").toLowerCase();
+      const kickoffText = (statusDetail.includes("tba") || !g.start_utc)
+        ? "TBA"
+        : (formatLocalTime(g.start_utc) || "TBA");
+
+      if (state.sport === "cbb") {
+        card.classList.add("future-cbb-card");
+
+        const head = document.createElement("div");
+        head.className = "future-cbb-head";
+
+        const badge = document.createElement("span");
+        badge.className = "badge";
+        badge.innerHTML = '<span class="dot"></span>Upcoming';
+
+        const timeChip = document.createElement("span");
+        timeChip.className = "future-cbb-time";
+        timeChip.textContent = kickoffText;
+
+        head.appendChild(badge);
+        head.appendChild(timeChip);
+
+        const matchupWrap = document.createElement("div");
+        matchupWrap.className = "future-cbb-matchup";
+
+        const awayRow = document.createElement("div");
+        awayRow.className = "future-cbb-team away";
+        awayRow.textContent = g.away || "Away";
+
+        const sep = document.createElement("div");
+        sep.className = "future-cbb-sep";
+        sep.textContent = "@";
+
+        const homeRow = document.createElement("div");
+        homeRow.className = "future-cbb-team home";
+        homeRow.textContent = g.home || "Home";
+
+        matchupWrap.appendChild(awayRow);
+        matchupWrap.appendChild(sep);
+        matchupWrap.appendChild(homeRow);
+
+        if (href) {
+          const a = document.createElement("a");
+          a.href = href;
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          a.className = "future-cbb-link";
+          a.appendChild(matchupWrap);
+          matchup.replaceChildren(a);
+        } else {
+          matchup.replaceChildren(matchupWrap);
+        }
+
+        const meta = document.createElement("div");
+        meta.className = "meta-row";
+
+        const network = document.createElement("span");
+        network.className = "network";
+        network.textContent = g.network || "No TV listed";
+        meta.appendChild(network);
+
+        card.appendChild(head);
+        card.appendChild(matchup);
+        card.appendChild(meta);
+
+        board.appendChild(card);
+        continue;
+      }
+
+      // Non-CBB sports keep the compact schedule tile format.
       const badge = document.createElement("div");
       badge.className = "badge";
       badge.innerHTML = '<span class="dot"></span>Upcoming';
 
-      // Meta row: time + network
       const meta = document.createElement("div");
       meta.className = "meta-row";
 
       const time = document.createElement("span");
       time.className = "time";
-      const statusDetail = String(g.status_detail || "").toLowerCase();
-      if (statusDetail.includes("tba") || !g.start_utc) {
-        time.textContent = "TBA";
-      } else {
-        time.textContent = formatLocalTime(g.start_utc) || "TBA";
-      }
+      time.textContent = kickoffText;
 
       const network = document.createElement("span");
       network.className = "network";
@@ -1158,6 +1244,24 @@ function mlbStateSortRank(state) {
   return 3;
 }
 
+function isMlbCompletedFinal(game) {
+  if (String(game?.state || "").toLowerCase() !== "post") return false;
+
+  // ESPN marks postponed/canceled games as state=post but completed=false.
+  if (game?.completed === false) return false;
+
+  const statusText = String(game?.status || "").toLowerCase();
+  if (statusText.includes("postponed") || statusText.includes("canceled") || statusText.includes("cancelled")) {
+    return false;
+  }
+
+  return true;
+}
+
+function isMlbPostponedGame(game) {
+  return String(game?.state || "").toLowerCase() === "post" && !isMlbCompletedFinal(game);
+}
+
 function mlbLiveHalfRank(game) {
   const half = String(game?.live?.inning_half || "").toLowerCase();
   if (half === "bottom") return 3;
@@ -1223,7 +1327,13 @@ function renderMlbCards(games) {
   if (!board) return;
 
   const sorted = [...(games || [])].sort((a, b) => {
-    const rankDiff = mlbStateSortRank(a?.state) - mlbStateSortRank(b?.state);
+    const rankA = isMlbPostponedGame(a)
+      ? 3
+      : (isMlbCompletedFinal(a) ? 1 : mlbStateSortRank(a?.state));
+    const rankB = isMlbPostponedGame(b)
+      ? 3
+      : (isMlbCompletedFinal(b) ? 1 : mlbStateSortRank(b?.state));
+    const rankDiff = rankA - rankB;
     if (rankDiff !== 0) return rankDiff;
 
     if (String(a?.state || "").toLowerCase() === "in" && String(b?.state || "").toLowerCase() === "in") {
@@ -1258,10 +1368,14 @@ function renderMlbCards(games) {
     const card = document.createElement("div");
     card.className = "game-card";
 
+    const isFinal = isMlbCompletedFinal(g);
+    const isPostponed = isMlbPostponedGame(g);
+
     let cls = "upcoming";
-    if (g.state === "post") cls = "final";
+    if (isFinal) cls = "final";
     else if (g.state === "in") cls = "live";
     card.classList.add(cls);
+    if (isPostponed) card.classList.add("postponed");
 
     const away = g.away?.abbr || g.away?.name || "—";
     const home = g.home?.abbr || g.home?.name || "—";
@@ -1297,7 +1411,7 @@ function renderMlbCards(games) {
     main.className = "main";
     const channelText = channelTextFromGame(g);
 
-    if (g.state === "post" && g.away?.score != null && g.home?.score != null) {
+    if (isFinal && g.away?.score != null && g.home?.score != null) {
       // Finished game: show final + scoreboard (logos in line)
       status.textContent = "Final";
       main.replaceChildren(buildMlbLiveScoreboard(g));
@@ -1307,12 +1421,18 @@ function renderMlbCards(games) {
       status.replaceChildren(buildMlbLiveStatusMeta(g, g.live || {}));
       main.replaceChildren(buildMlbLiveScoreboard(g));
     } else {
-      // Upcoming: show local start time if available, but do not display "Scheduled"
-      status.textContent = formatLocalTime(g.startTime) || "";
+      // Upcoming/postponed: show local start time for upcoming, status label for postponed/canceled.
+      const statusLabel = String(g.status || "");
+      status.textContent = String(g.state || "").toLowerCase() === "post"
+        ? (statusLabel || "Postponed")
+        : (formatLocalTime(g.startTime) || "");
+      if (isPostponed) {
+        status.classList.add("mlb-postponed-status");
+      }
       main.textContent = "";
     }
 
-    if (g.state !== "post") {
+    if (!isFinal) {
       card.appendChild(matchup);
     }
     card.appendChild(status);
@@ -1416,7 +1536,7 @@ function renderMlbCards(games) {
     }
 
     // Show winning/losing/save pitcher info for final games when available
-    if (g.state === "post" && g.decisions) {
+    if (isFinal && g.decisions) {
       const decDiv = document.createElement("div");
       decDiv.className = "sub mlb-decisions";
 
@@ -1760,7 +1880,7 @@ async function loadGames(yyyymmdd = null, silent = false) {
     try {
       ({ resp, data } = await fetchMlbGames(date_espn));
     } catch (e) {
-      if (!silent) showError(`Failed to load MLB games\n${e}`);
+      if (!silent) showError(e);
       return;
     }
 
@@ -1793,7 +1913,7 @@ async function loadGames(yyyymmdd = null, silent = false) {
     try {
       ({ resp, data } = await fetchGames(date_espn, date_kp, state.sport));
     } catch (e) {
-      showError(`Failed to load ${state.sport.toUpperCase()} games\n${e}`);
+      showError(e);
       return;
     }
 
@@ -1830,7 +1950,7 @@ async function loadGames(yyyymmdd = null, silent = false) {
   try {
     ({ resp, data } = await fetchGames(date_espn, date_kp));
   } catch (e) {
-    showError(`Failed to load games\n${e}`);
+    showError(e);
     return;
   }
 

@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from fastapi import HTTPException
-from normalize import matchup_key
+from normalize import matchup_key, normalize_team
 from utils.dates import kp_date, is_future_yyyymmdd_eastern
 from services.espn import fetch_scoreboard, parse_games
 from services.kenpom import fetch_fanmatch
@@ -16,6 +16,42 @@ def _kp_by_key(kp_rows: list[dict]) -> dict[str, dict]:
         key = matchup_key(g.get("Visitor"), g.get("Home"))
         out[key] = g
     return out
+
+
+def _teamset_key(team_a: str | None, team_b: str | None) -> tuple[str, str]:
+    a = normalize_team(team_a)
+    b = normalize_team(team_b)
+    return tuple(sorted((a, b)))
+
+
+def _kp_by_teamset(kp_rows: list[dict]) -> dict[tuple[str, str], list[dict]]:
+    out: dict[tuple[str, str], list[dict]] = {}
+    for g in kp_rows:
+        key = _teamset_key(g.get("Visitor"), g.get("Home"))
+        out.setdefault(key, []).append(g)
+    return out
+
+
+def _find_kp_match_for_espn_game(e: dict, kp_by_key: dict[str, dict], kp_by_teamset: dict[tuple[str, str], list[dict]]) -> tuple[dict | None, bool]:
+    # Primary exact key match (away @ home orientation aligned)
+    kp = kp_by_key.get(e.get("key"))
+    if kp:
+        return kp, False
+
+    # Fallback for occasional ESPN/KenPom home-away inversion on neutral-site style listings.
+    pair_key = _teamset_key(e.get("away"), e.get("home"))
+    candidates = kp_by_teamset.get(pair_key) or []
+    if len(candidates) != 1:
+        return None, False
+
+    candidate = candidates[0]
+    espn_away = normalize_team(e.get("away"))
+    espn_home = normalize_team(e.get("home"))
+    kp_away = normalize_team(candidate.get("Visitor"))
+    kp_home = normalize_team(candidate.get("Home"))
+
+    flipped = (espn_away == kp_home and espn_home == kp_away)
+    return candidate, flipped
 
 
 # ----------------------------
@@ -136,11 +172,12 @@ def merge_strict(date_espn: str, date_kp: str, sport: str = "cbb") -> dict:
     espn_games = parse_games(fetch_scoreboard(date_espn, sport))
     kp_rows = fetch_fanmatch(date_kp)
     kp_by_key = _kp_by_key(kp_rows)
+    kp_by_teamset = _kp_by_teamset(kp_rows)
 
     merged = []
     missing = []
     for e in espn_games:
-        kp = kp_by_key.get(e["key"])
+        kp, flipped = _find_kp_match_for_espn_game(e, kp_by_key, kp_by_teamset)
         if not kp:
             missing.append(e)
             continue
@@ -164,13 +201,13 @@ def merge_strict(date_espn: str, date_kp: str, sport: str = "cbb") -> dict:
 
             "kp_found": True,
             "kp_game_id": kp.get("GameID"),
-            "kp_home_pred": kp.get("HomePred"),
-            "kp_away_pred": kp.get("VisitorPred"),
-            "kp_home_wp": kp.get("HomeWP"),
+            "kp_home_pred": kp.get("VisitorPred") if flipped else kp.get("HomePred"),
+            "kp_away_pred": kp.get("HomePred") if flipped else kp.get("VisitorPred"),
+            "kp_home_wp": (100 - kp.get("HomeWP")) if (flipped and kp.get("HomeWP") is not None) else kp.get("HomeWP"),
             "kp_thrill": kp.get("ThrillScore"),
             "kp_pred_tempo": kp.get("PredTempo"),
-            "kp_home_rank": kp.get("HomeRank"),
-            "kp_away_rank": kp.get("VisitorRank"),
+            "kp_home_rank": kp.get("VisitorRank") if flipped else kp.get("HomeRank"),
+            "kp_away_rank": kp.get("HomeRank") if flipped else kp.get("VisitorRank"),
         }
 
         _attach_conf_fields(g, e)
@@ -193,10 +230,11 @@ def merge_lenient(date_espn: str, date_kp: str, sport: str = "cbb") -> dict:
     espn_games = parse_games(fetch_scoreboard(date_espn, sport))
     kp_rows = fetch_fanmatch(date_kp)
     kp_by_key = _kp_by_key(kp_rows)
+    kp_by_teamset = _kp_by_teamset(kp_rows)
 
     merged = []
     for e in espn_games:
-        kp = kp_by_key.get(e["key"])
+        kp, flipped = _find_kp_match_for_espn_game(e, kp_by_key, kp_by_teamset)
 
         g = {
             "key": e["key"],
@@ -217,13 +255,13 @@ def merge_lenient(date_espn: str, date_kp: str, sport: str = "cbb") -> dict:
 
             "kp_found": kp is not None,
             "kp_game_id": kp.get("GameID") if kp else None,
-            "kp_home_pred": kp.get("HomePred") if kp else None,
-            "kp_away_pred": kp.get("VisitorPred") if kp else None,
-            "kp_home_wp": kp.get("HomeWP") if kp else None,
+            "kp_home_pred": (kp.get("VisitorPred") if flipped else kp.get("HomePred")) if kp else None,
+            "kp_away_pred": (kp.get("HomePred") if flipped else kp.get("VisitorPred")) if kp else None,
+            "kp_home_wp": ((100 - kp.get("HomeWP")) if (flipped and kp.get("HomeWP") is not None) else kp.get("HomeWP")) if kp else None,
             "kp_thrill": kp.get("ThrillScore") if kp else None,
             "kp_pred_tempo": kp.get("PredTempo") if kp else None,
-            "kp_home_rank": kp.get("HomeRank") if kp else None,
-            "kp_away_rank": kp.get("VisitorRank") if kp else None,
+            "kp_home_rank": (kp.get("VisitorRank") if flipped else kp.get("HomeRank")) if kp else None,
+            "kp_away_rank": (kp.get("HomeRank") if flipped else kp.get("VisitorRank")) if kp else None,
         }
 
         _attach_conf_fields(g, e)

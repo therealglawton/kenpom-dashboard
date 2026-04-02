@@ -31,13 +31,9 @@
 
     <!-- Integrated status + controls (low key, single row) -->
     <div class="row" style="align-items:center;">
-      <div class="muted" aria-live="polite" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <div id="controlsInline" class="muted" aria-live="polite" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
 
-        <span>
-          Updated <strong><span id="updatedAgo" class="updatedAgo">—</span></strong> ago
-        </span>
-
-        <span class="muted" style="opacity:.7;">·</span>
+        <!-- Updated counter removed; polling/refresh logic unchanged -->
 
         <!-- CBB-only controls (wrapped so MLB mode can hide labels AND selects) -->
         <span id="thrillGroup" style="display:inline-flex; gap:10px; align-items:center;">
