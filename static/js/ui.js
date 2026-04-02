@@ -121,7 +121,11 @@ function setSport(sport) {
   const pgaSection = $("pgaSection");
   const cardBoard = $("cardBoard");
   const controlsInline = $("controlsInline");
-  if (pgaSection) pgaSection.style.display = isPga ? "block" : "none";
+  if (pgaSection) {
+    // Mobile PGA layout relies on a flex column so the leaderboard gets a real scroll container.
+    const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches;
+    pgaSection.style.display = isPga ? (isMobile ? "flex" : "block") : "none";
+  }
   if (cardBoard) cardBoard.style.display = isPga ? "none" : "block";
   if (controlsInline) controlsInline.style.display = isPga ? "none" : "flex";
 
