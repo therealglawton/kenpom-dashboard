@@ -167,12 +167,26 @@ tr.not-started td {
 }
 
 @media (max-width: 760px) {
+  html.pga,
+  html.pga body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  html.pga .container {
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
   #pgaSection {
     display: flex;
     flex-direction: column;
-    max-height: calc(100vh - 150px);
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    overflow: hidden;
     padding-left: 8px;
     padding-right: 8px;
     padding-bottom: 8px;
@@ -222,7 +236,7 @@ tr.not-started td {
     padding: 2px 8px;
   }
 
-  .table-wrap {
+  #pgaSection .table-wrap {
     margin-top: 8px;
     flex: 1 1 auto;
     min-height: 0;
@@ -231,6 +245,7 @@ tr.not-started td {
     overflow-y: auto;
     max-height: none;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     padding: 0;
     background: #fff;
   }
@@ -241,12 +256,13 @@ tr.not-started td {
     border-spacing: 0 6px;
   }
 
-  .table-wrap thead th {
+  #pgaSection .table-wrap thead th {
     position: sticky;
     top: 0;
-    z-index: 3;
+    z-index: 6;
     background: #fff;
     border-bottom: 1px solid #e5e7eb;
+    box-shadow: 0 1px 0 #e5e7eb;
     padding: 6px 8px;
     font-size: 10px;
     line-height: 1.2;

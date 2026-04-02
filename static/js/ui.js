@@ -85,6 +85,8 @@ function setSport(sport) {
   document.documentElement.classList.toggle("mlb", sport === "mlb");
   document.documentElement.classList.toggle("nfl", sport === "nfl");
   document.documentElement.classList.toggle("cfb", sport === "cfb");
+  document.documentElement.classList.toggle("cbb", sport === "cbb");
+  document.documentElement.classList.toggle("pga", sport === "pga");
 
   const tabCbb = $("tabCbb");
   const tabMlb = $("tabMlb");
